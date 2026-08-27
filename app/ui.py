@@ -484,6 +484,13 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
         </button>
       </div>
 
+      <div style="margin-bottom: 0.85rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+        <label style="display:flex; align-items:center; gap:0.4rem; font-size:0.85rem; color:#93c5fd; cursor:pointer;">
+          <input type="checkbox" id="bypassCacheCheck" checked> ⚡ Bypass Cache (Force Live Fetch)
+        </label>
+        <button style="background:#334155; color:#cbd5e1; border:none; padding:0.25rem 0.6rem; border-radius:6px; font-size:0.8rem; cursor:pointer;" onclick="clearCache()">🗑️ Clear Cache</button>
+      </div>
+
       <div class="sample-pills">
         <span>Quick Samples:</span>
         <span class="pill" onclick="setSample('https://www.linkedin.com/in/sarah-jenkins-dev')">Sarah Jenkins (100% Complete)</span>
@@ -676,8 +683,18 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
 
     let currentApiKey = 'test-api-key-123';
 
+    async function clearCache() {
+      try {
+        await fetch('/v1/cache/clear', { method: 'POST' });
+        alert('✅ In-memory cache cleared! Next fetch will be live.');
+      } catch (e) {
+        alert('Error clearing cache: ' + e.message);
+      }
+    }
+
     async function fetchProfile() {
       const url = document.getElementById('urlInput').value.trim();
+      const bypassCache = document.getElementById('bypassCacheCheck')?.checked ?? true;
       const errorBox = document.getElementById('errorBox');
       const btnSpinner = document.getElementById('btnSpinner');
       const btnText = document.getElementById('btnText');
@@ -685,7 +702,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
 
       errorBox.style.display = 'none';
       btnSpinner.style.display = 'inline-block';
-      btnText.innerText = 'Fetching...';
+      btnText.innerText = 'Fetching Live...';
       fetchBtn.disabled = true;
 
       const startTime = performance.now();
@@ -697,7 +714,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
             'Content-Type': 'application/json',
             'X-API-Key': currentApiKey
           },
-          body: JSON.stringify({ url: url })
+          body: JSON.stringify({ url: url, bypass_cache: bypassCache })
         });
 
         const elapsedMs = Math.round(performance.now() - startTime);

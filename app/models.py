@@ -214,6 +214,10 @@ class ProfileLookupRequest(BaseModel):
         description="Public LinkedIn profile URL (e.g. https://www.linkedin.com/in/username)",
         examples=["https://www.linkedin.com/in/sarah-jenkins-dev"],
     )
+    bypass_cache: bool = Field(
+        default=False,
+        description="Set True to skip in-memory cache and force a fresh extraction",
+    )
 
 
 class ProfileLookupResponse(BaseModel):

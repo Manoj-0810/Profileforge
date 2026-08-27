@@ -61,26 +61,28 @@ class ProfileService:
         raw_url: str,
         request_id: str,
         override_extractor: ProfileExtractor | None = None,
+        bypass_cache: bool = False,
     ) -> ProfileLookupResponse:
         """Coordinate profile lookup with validation, cache-aside, and request coalescing."""
         canonical_url, profile_id = validate_and_canonicalize_url(raw_url)
         active_extractor = override_extractor or self.extractor
 
-        # 1. Check cache
-        cached_profile = await self.cache.get(profile_id)
-        if cached_profile is not None:
-            logger.info(
-                "profile_cache_hit", profile_id=profile_id, request_id=request_id
-            )
-            dq = self._build_data_quality_from_profile(cached_profile)
-            return ProfileLookupResponse(
-                profile=cached_profile,
-                fetched_at=datetime.now(timezone.utc),
-                cache_hit=True,
-                source=active_extractor.capabilities.provider_name,
-                request_id=request_id,
-                data_quality=dq,
-            )
+        # 1. Check cache (if not bypassed)
+        if not bypass_cache:
+            cached_profile = await self.cache.get(profile_id)
+            if cached_profile is not None:
+                logger.info(
+                    "profile_cache_hit", profile_id=profile_id, request_id=request_id
+                )
+                dq = self._build_data_quality_from_profile(cached_profile)
+                return ProfileLookupResponse(
+                    profile=cached_profile,
+                    fetched_at=datetime.now(timezone.utc),
+                    cache_hit=True,
+                    source=active_extractor.capabilities.provider_name,
+                    request_id=request_id,
+                    data_quality=dq,
+                )
 
         # 2. Single-flight request coalescing
         async with self._in_flight_lock:

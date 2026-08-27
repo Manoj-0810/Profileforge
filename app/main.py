@@ -233,6 +233,8 @@ async def update_credentials(
         api_key=payload.api_key,
         extractor_type=payload.extractor_type,
     )
+    # Clear in-memory cache so fresh credentials take immediate effect
+    await cache_instance.clear()
     logger.info(
         "credentials_updated_via_api",
         extractor_type=settings.EXTRACTOR_TYPE,
@@ -240,9 +242,16 @@ async def update_credentials(
     )
     return {
         "status": "success",
-        "message": "Credentials successfully saved to .env and activated.",
+        "message": "Credentials successfully saved to .env and cache cleared.",
         "config": result,
     }
+
+
+@app.post("/v1/cache/clear", tags=["Configuration"])
+async def clear_cache() -> dict[str, str]:
+    """Clear all cached profiles from in-memory cache."""
+    await cache_instance.clear()
+    return {"status": "success", "message": "Cache successfully cleared."}
 
 
 # Core Lookup Endpoint
@@ -261,17 +270,17 @@ async def lookup_profile(
 ) -> ProfileLookupResponse:
     """Primary profile lookup route protected by API key and rate limiting.
 
-    - Uses MockExtractor if test-api-key-123 or forge-secret-dev is used, or header X-Extractor-Mode: mock is set.
-    - Uses live LinkedInExtractor if live LinkedAPI tokens are configured and a real or configured key is used.
+    - Uses live LinkedInExtractor if settings.EXTRACTOR_TYPE == 'linkedapi' and tokens are present.
+    - Uses MockExtractor if mode is set to 'mock' or if running offline.
     """
     request_id = getattr(request.state, "request_id", "req-unknown")
     header_mode = request.headers.get("X-Extractor-Mode", "").lower()
 
-    # Determine dynamic extractor
     override_extractor: ProfileExtractor | None = None
 
-    if header_mode == "mock" or api_key in ["test-api-key-123", "forge-secret-dev"]:
-        # User requested mock data or entered default test key
+    if header_mode == "mock" or (
+        settings.EXTRACTOR_TYPE == "mock" and not settings.LINKEDAPI_TOKEN
+    ):
         override_extractor = MockExtractor()
     elif settings.EXTRACTOR_TYPE == "linkedapi" or settings.LINKEDAPI_TOKEN:
         if not settings.LINKEDAPI_TOKEN or not settings.LINKEDAPI_IDENTIFICATION_TOKEN:
@@ -287,7 +296,12 @@ async def lookup_profile(
             poll_interval_seconds=settings.LINKEDAPI_POLL_INTERVAL_SECONDS,
         )
         override_extractor = LinkedInExtractor(client=client)
+    else:
+        override_extractor = MockExtractor()
 
     return await profile_service.lookup(
-        body.url, request_id=request_id, override_extractor=override_extractor
+        body.url,
+        request_id=request_id,
+        override_extractor=override_extractor,
+        bypass_cache=body.bypass_cache,
     )
