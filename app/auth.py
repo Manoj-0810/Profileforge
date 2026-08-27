@@ -5,16 +5,19 @@ from __future__ import annotations
 import secrets
 
 import structlog
-from fastapi import Header
+from fastapi import Security
+from fastapi.security import APIKeyHeader
 
 from app.config import settings
 from app.errors import ErrorCode, ProfileForgeError
 
 logger = structlog.get_logger(__name__)
 
+api_key_header_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+
 
 async def verify_api_key(
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    x_api_key: str | None = Security(api_key_header_scheme),
 ) -> str:
     """Validate X-API-Key header using constant-time comparison against configured authorized keys.
 
