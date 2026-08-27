@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from typing import Any
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,10 +17,27 @@ class Settings(BaseSettings):
     )
 
     # API Authentication
-    API_KEYS: list[str] = Field(
+    API_KEYS: list[str] | str = Field(
         default_factory=lambda: ["test-api-key-123", "forge-secret-dev"],
         description="Comma-separated or list of authorized client API keys for X-API-Key header",
     )
+
+    @field_validator("API_KEYS", mode="after")
+    @classmethod
+    def parse_api_keys(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    res = json.loads(v)
+                    if isinstance(res, list):
+                        return res
+                except Exception:
+                    pass
+            return [k.strip() for k in v.split(",") if k.strip()]
+        if isinstance(v, list):
+            return v
+        return ["test-api-key-123", "forge-secret-dev"]
 
     # LinkedAPI Credentials
     LINKEDAPI_TOKEN: str = Field(default="", description="LinkedAPI developer token")
@@ -64,10 +81,27 @@ class Settings(BaseSettings):
     )
 
     # Security & CORS
-    CORS_ORIGINS: list[str] = Field(
+    CORS_ORIGINS: list[str] | str = Field(
         default_factory=list,
         description="List of allowed CORS origins (empty by default for security)",
     )
+
+    @field_validator("CORS_ORIGINS", mode="after")
+    @classmethod
+    def parse_cors_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            if v.startswith("[") and v.endswith("]"):
+                import json
+                try:
+                    res = json.loads(v)
+                    if isinstance(res, list):
+                        return res
+                except Exception:
+                    pass
+            return [k.strip() for k in v.split(",") if k.strip()]
+        if isinstance(v, list):
+            return v
+        return []
     ENVIRONMENT: str = Field(
         default="development",
         description="Environment tier: development, staging, production",

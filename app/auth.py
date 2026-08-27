@@ -38,7 +38,10 @@ async def verify_api_key(
             status_code=401,
         )
 
-    valid_keys = settings.API_KEYS
+    valid_keys = list(settings.API_KEYS)
+    if settings.LINKEDAPI_TOKEN:
+        valid_keys.append(settings.LINKEDAPI_TOKEN)
+
     is_valid = any(secrets.compare_digest(x_api_key, key) for key in valid_keys)
 
     if not is_valid:

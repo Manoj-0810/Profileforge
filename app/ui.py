@@ -476,9 +476,8 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
     <div class="search-card">
       <div class="input-row">
         <div class="input-group">
-          <input type="text" id="urlInput" placeholder="https://www.linkedin.com/in/username" value="https://www.linkedin.com/in/sarah-jenkins-dev">
+          <input type="text" id="urlInput" placeholder="Enter LinkedIn Profile URL (e.g. https://www.linkedin.com/in/manoj-r-s-644560275/)" value="https://www.linkedin.com/in/sarah-jenkins-dev">
         </div>
-        <input type="text" id="apiKeyInput" class="api-key-input" placeholder="X-API-Key" value="test-api-key-123" title="API Key Header">
         <button class="btn-primary" id="fetchBtn" onclick="fetchProfile()">
           <span class="spinner" id="btnSpinner"></span>
           <span id="btnText">Fetch Profile</span>
@@ -634,7 +633,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
         if (res.ok) {
           alertBox.className = 'save-alert success';
           alertBox.innerText = '✅ Credentials saved to .env! Real-time live extraction is now active.';
-          document.getElementById('apiKeyInput').value = apiKey;
+          currentApiKey = apiKey;
           checkStatus();
         } else {
           alertBox.className = 'save-alert error';
@@ -675,9 +674,10 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       alert('JSON copied to clipboard!');
     }
 
+    let currentApiKey = 'test-api-key-123';
+
     async function fetchProfile() {
       const url = document.getElementById('urlInput').value.trim();
-      const apiKey = document.getElementById('apiKeyInput').value.trim();
       const errorBox = document.getElementById('errorBox');
       const btnSpinner = document.getElementById('btnSpinner');
       const btnText = document.getElementById('btnText');
@@ -695,7 +695,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': apiKey
+            'X-API-Key': currentApiKey
           },
           body: JSON.stringify({ url: url })
         });

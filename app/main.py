@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from app.cache import InMemoryCache
-from app.config import settings
+from app.config import save_env_credentials, settings
 from app.errors import ErrorCode, ProfileForgeError
 from app.extractor.base import ProfileExtractor
 from app.extractor.linkedin import LinkedInExtractor
