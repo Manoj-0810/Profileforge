@@ -155,21 +155,14 @@ async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONRe
     )
 
 
-# Root Endpoint
-@app.get("/", include_in_schema=False)
-async def root() -> dict[str, Any]:
-    """Root landing endpoint providing API metadata and documentation links."""
-    return {
-        "service": "ProfileForge API",
-        "version": "1.0.0",
-        "status": "operational",
-        "docs_url": "/docs",
-        "redoc_url": "/redoc",
-        "health_check": "/healthz",
-        "readiness_check": "/readyz",
-        "lookup_endpoint": "POST /v1/profile",
-        "message": "Welcome to ProfileForge! Navigate to http://127.0.0.1:10000/docs for the interactive Swagger UI.",
-    }
+from fastapi.responses import HTMLResponse, JSONResponse
+from app.ui import HTML_PLAYGROUND
+
+# Root Playground Endpoint
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+async def root() -> HTMLResponse:
+    """Interactive visual playground and developer console."""
+    return HTMLResponse(content=HTML_PLAYGROUND)
 
 
 # Health & Diagnostics Endpoints
