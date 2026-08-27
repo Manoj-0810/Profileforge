@@ -1,0 +1,90 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Marcus Aurelius Brookes",
+    "urn": "urn:li:member:102938475",
+    "publicUrl": "https://www.linkedin.com/in/mbrookes-eng",
+    "hashedUrl": "https://www.linkedin.com/in/mBr00k3s",
+    "headline": "VP Engineering at QuantumLeap",
+    "location": "London, Greater London, United Kingdom",
+    "countryCode": "GB",
+    "position": "VP Engineering",
+    "companyName": "QuantumLeap Labs",
+    "companyHashedUrl": "https://www.linkedin.com/company/quantumleap",
+    "followersCount": 15200,
+    "about": "20+ years building and leading globally distributed engineering teams.",
+    "profilePicture": "https://media.licdn.com/dms/image/v2/D4E03AQGexample/profile-displayphoto/0/marcusb.jpg",
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "VP Engineering",
+            "companyName": "QuantumLeap Labs",
+            "companyHashedUrl": "https://www.linkedin.com/company/quantumleap",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Scaling 120-person engineering organization across Europe.",
+            "duration": 36,
+            "startTime": "2023-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "London, UK"
+          },
+          {
+            "position": "Director of Engineering",
+            "companyName": "FinTech Global",
+            "companyHashedUrl": "https://www.linkedin.com/company/fintechglobal",
+            "employmentType": "fullTime",
+            "locationType": "hybrid",
+            "description": "Led core ledger and payments infrastructure teams.",
+            "duration": 48,
+            "startTime": "2019-01-01T00:00:00Z",
+            "endTime": "2022-12-31T00:00:00Z",
+            "location": "London, UK"
+          },
+          {
+            "position": "Senior Principal Architect",
+            "companyName": "OmniCloud UK",
+            "companyHashedUrl": "https://www.linkedin.com/company/omnicloud",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Designed multi-tenant Kubernetes platform.",
+            "duration": 60,
+            "startTime": "2014-01-01T00:00:00Z",
+            "endTime": "2018-12-31T00:00:00Z",
+            "location": "London, UK"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "Imperial College London",
+            "schoolHashedUrl": "https://www.linkedin.com/company/imperialcollegelondon",
+            "details": "MEng Computing"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Engineering Leadership" },
+          { "name": "Distributed Systems Architecture" },
+          { "name": "Cloud Infrastructure" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "English", "proficiency": "Native" }
+        ]
+      }
+    ]
+  }
+}

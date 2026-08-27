@@ -1,0 +1,16 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "then": [
+      {
+        "actionType": "st.openPersonPage",
+        "success": false,
+        "error": {
+          "type": "personNotFound",
+          "message": "The specified LinkedIn profile could not be found or does not exist."
+        }
+      }
+    ]
+  }
+}

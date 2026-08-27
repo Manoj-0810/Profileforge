@@ -1,0 +1,67 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Elena Rostova",
+    "urn": "urn:li:member:492019482",
+    "publicUrl": "https://www.linkedin.com/in/elena-rostova",
+    "hashedUrl": "https://www.linkedin.com/in/3l3n4R0st0v4",
+    "headline": "Principal Machine Learning Scientist",
+    "location": "New York, New York, United States",
+    "countryCode": "US",
+    "position": "Principal ML Scientist",
+    "companyName": "DeepLearn AI",
+    "companyHashedUrl": "https://www.linkedin.com/company/49201928",
+    "followersCount": 12840,
+    "about": "Researching foundation model alignment and efficient transformer inference.",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Principal ML Scientist",
+            "companyName": "DeepLearn AI",
+            "companyHashedUrl": "https://www.linkedin.com/company/49201928",
+            "employmentType": "fullTime",
+            "locationType": "hybrid",
+            "description": "Leading LLM post-training research.",
+            "duration": 24,
+            "startTime": "2024-03-01T00:00:00Z",
+            "endTime": null,
+            "location": "New York, NY"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "Stanford University",
+            "schoolHashedUrl": "https://www.linkedin.com/company/stanford",
+            "details": "PhD in Computer Science (Artificial Intelligence)"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "PyTorch" },
+          { "name": "Deep Learning" },
+          { "name": "Transformers" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "English", "proficiency": "Native" },
+          { "name": "Russian", "proficiency": "Native" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Dr. Aris Thorne",
+    "urn": "urn:li:member:901928475",
+    "publicUrl": "https://www.linkedin.com/in/dr-aris-thorne",
+    "hashedUrl": "https://www.linkedin.com/in/4r1sTh0rn3",
+    "headline": "Quantum Computing Researcher",
+    "location": "Zurich, Switzerland",
+    "countryCode": "CH",
+    "position": "Senior Research Fellow",
+    "companyName": "ETH Zurich",
+    "companyHashedUrl": "https://www.linkedin.com/company/ethzurich",
+    "followersCount": 3200,
+    "about": "Researching superconducting qubits and quantum error correction.",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Senior Research Fellow",
+            "companyName": "ETH Zurich",
+            "companyHashedUrl": "https://www.linkedin.com/company/ethzurich",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Postdoctoral research on topological quantum codes.",
+            "duration": 24,
+            "startTime": "2024-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "Zurich, Switzerland"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "ETH Zurich",
+            "schoolHashedUrl": "https://www.linkedin.com/company/ethzurich",
+            "details": "PhD in Quantum Physics",
+            "startTime": "2019-09-01T00:00:00Z",
+            "endTime": "2023-12-15T00:00:00Z"
+          },
+          {
+            "schoolName": "University of Cambridge",
+            "schoolHashedUrl": "https://www.linkedin.com/company/cambridge",
+            "details": "MASt in Applied Mathematics and Theoretical Physics (Part III)",
+            "startTime": "2018-10-01T00:00:00Z",
+            "endTime": "2019-06-30T00:00:00Z"
+          },
+          {
+            "schoolName": "University of Oxford",
+            "schoolHashedUrl": "https://www.linkedin.com/company/oxford",
+            "details": "BA Physics (First Class)",
+            "startTime": "2015-10-01T00:00:00Z",
+            "endTime": "2018-06-30T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Quantum Computing" },
+          { "name": "Mathematical Physics" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "German", "proficiency": "Native" },
+          { "name": "English", "proficiency": "Full professional" }
+        ]
+      }
+    ]
+  }
+}

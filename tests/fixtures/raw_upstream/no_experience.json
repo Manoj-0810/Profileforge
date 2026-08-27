@@ -1,0 +1,52 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Jordan Lee",
+    "urn": "urn:li:member:619284019",
+    "publicUrl": "https://www.linkedin.com/in/jordan-lee-student",
+    "hashedUrl": "https://www.linkedin.com/in/j0rd4nL33",
+    "headline": "Computer Science Student @ Berkeley",
+    "location": "Berkeley, California, United States",
+    "countryCode": "US",
+    "position": null,
+    "companyName": null,
+    "companyHashedUrl": null,
+    "followersCount": 180,
+    "about": "Undergraduate studying algorithms and systems.",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "UC Berkeley",
+            "schoolHashedUrl": "https://www.linkedin.com/company/ucberkeley",
+            "details": "BS Computer Science (In Progress)"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "C++" },
+          { "name": "Python" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "English", "proficiency": "Native" }
+        ]
+      }
+    ]
+  }
+}

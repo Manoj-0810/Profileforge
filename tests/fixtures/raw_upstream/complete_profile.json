@@ -1,0 +1,91 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Sarah Jenkins",
+    "urn": "urn:li:member:849201948",
+    "publicUrl": "https://www.linkedin.com/in/sarah-jenkins-dev",
+    "hashedUrl": "https://www.linkedin.com/in/s4r4hJ3nk1nsD3v",
+    "headline": "Staff Distributed Systems Engineer @ CloudScale",
+    "location": "Seattle, Washington, United States",
+    "countryCode": "US",
+    "position": "Staff Distributed Systems Engineer",
+    "companyName": "CloudScale Inc.",
+    "companyHashedUrl": "https://www.linkedin.com/company/92847192",
+    "followersCount": 4510,
+    "about": "Passionate backend engineer specializing in high-throughput streaming systems, consensus protocols, and developer platforms.",
+    "profilePicture": "https://media.licdn.com/dms/image/v2/D4E03AQGexample/profile-displayphoto-shrink_800_800/0/example.jpg",
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Staff Distributed Systems Engineer",
+            "companyName": "CloudScale Inc.",
+            "companyHashedUrl": "https://www.linkedin.com/company/92847192",
+            "employmentType": "fullTime",
+            "locationType": "hybrid",
+            "description": "Architecting multi-region streaming pipelines handling 5M events/sec. Tech lead for core consensus layer.",
+            "duration": 28,
+            "startTime": "2024-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "Seattle, WA"
+          },
+          {
+            "position": "Senior Backend Engineer",
+            "companyName": "DataMesh Systems",
+            "companyHashedUrl": "https://www.linkedin.com/company/18492048",
+            "employmentType": "fullTime",
+            "locationType": "remote",
+            "description": "Built resilient gRPC microservices and optimized PostgreSQL query performance.",
+            "duration": 36,
+            "startTime": "2021-01-01T00:00:00Z",
+            "endTime": "2023-12-31T00:00:00Z",
+            "location": "San Francisco, CA"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "University of Washington",
+            "schoolHashedUrl": "https://www.linkedin.com/company/uw1861",
+            "details": "Master of Science in Computer Science & Engineering",
+            "startTime": "2018-09-01T00:00:00Z",
+            "endTime": "2020-06-15T00:00:00Z"
+          },
+          {
+            "schoolName": "University of Washington",
+            "schoolHashedUrl": "https://www.linkedin.com/company/uw1861",
+            "details": "Bachelor of Science in Computer Engineering",
+            "startTime": "2014-09-01T00:00:00Z",
+            "endTime": "2018-06-15T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Distributed Systems" },
+          { "name": "Python" },
+          { "name": "Go" },
+          { "name": "Kubernetes" },
+          { "name": "FastAPI" },
+          { "name": "PostgreSQL" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "English", "proficiency": "Native or bilingual" },
+          { "name": "German", "proficiency": "Professional working" }
+        ]
+      }
+    ]
+  }
+}

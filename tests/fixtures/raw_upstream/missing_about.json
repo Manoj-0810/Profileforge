@@ -1,0 +1,65 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Marcus Vance",
+    "urn": "urn:li:member:772910482",
+    "publicUrl": "https://www.linkedin.com/in/marcus-vance",
+    "hashedUrl": "https://www.linkedin.com/in/m4rcusV4nc3",
+    "headline": "Lead Security Architect at CyberDefense",
+    "location": "Boston, Massachusetts, United States",
+    "countryCode": "US",
+    "position": "Lead Security Architect",
+    "companyName": "CyberDefense Systems",
+    "companyHashedUrl": "https://www.linkedin.com/company/88492019",
+    "followersCount": 1940,
+    "about": null,
+    "profilePicture": "https://media.licdn.com/dms/image/v2/D4E03AQGexample/profile-displayphoto/0/marcus.jpg",
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Lead Security Architect",
+            "companyName": "CyberDefense Systems",
+            "companyHashedUrl": "https://www.linkedin.com/company/88492019",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Zero-trust architecture and threat modeling.",
+            "duration": 40,
+            "startTime": "2023-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "Boston, MA"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "MIT",
+            "schoolHashedUrl": "https://www.linkedin.com/company/mit",
+            "details": "BS Computer Science"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "AppSec" },
+          { "name": "Cryptography" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "English", "proficiency": "Native" }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "David Sterling",
+    "urn": "urn:li:member:602910482",
+    "publicUrl": "https://www.linkedin.com/in/david-sterling",
+    "hashedUrl": "https://www.linkedin.com/in/d4v1dSt3rl1ng",
+    "headline": "Infrastructure Lead",
+    "location": "Chicago, Illinois, United States",
+    "countryCode": "US",
+    "position": "Infrastructure Lead",
+    "companyName": "Apex Financial",
+    "companyHashedUrl": "https://www.linkedin.com/company/apexfin",
+    "followersCount": 3100,
+    "about": "Site reliability and low-latency trading infrastructure.",
+    "profilePicture": null,
+    "experimental_ai_summary": "Extensive experience in low latency kernels.",
+    "future_feature_flag_active": true,
+    "internal_tracking_id": "trk_92019482",
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Infrastructure Lead",
+            "companyName": "Apex Financial",
+            "companyHashedUrl": "https://www.linkedin.com/company/apexfin",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Kernel tuning and multicast network configuration.",
+            "duration": 22,
+            "startTime": "2024-05-01T00:00:00Z",
+            "endTime": null,
+            "location": "Chicago, IL",
+            "custom_metadata_tag": "hft-core"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Linux Kernel" },
+          { "name": "C++20" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": []
+      }
+    ]
+  }
+}

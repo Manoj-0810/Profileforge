@@ -1,0 +1,57 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Alex Mercer",
+    "urn": "urn:li:member:192847291",
+    "publicUrl": "https://www.linkedin.com/in/alex-mercer-tech",
+    "hashedUrl": "https://www.linkedin.com/in/4l3xM3rc3r",
+    "headline": "Full-Stack Developer",
+    "location": "Austin, Texas, United States",
+    "countryCode": "US",
+    "position": "Software Engineer",
+    "companyName": "InnoSoft LLC",
+    "companyHashedUrl": "https://www.linkedin.com/company/48291048",
+    "followersCount": 820,
+    "about": null,
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Software Engineer",
+            "companyName": "InnoSoft LLC",
+            "companyHashedUrl": "https://www.linkedin.com/company/48291048",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Building web portals in React and Python.",
+            "duration": 14,
+            "startTime": "2025-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "Austin, TX"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "TypeScript" },
+          { "name": "Python" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": []
+      }
+    ]
+  }
+}

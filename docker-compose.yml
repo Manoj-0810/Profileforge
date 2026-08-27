@@ -1,0 +1,18 @@
+services:
+  profileforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "10000:10000"
+    environment:
+      - PORT=10000
+      - ENVIRONMENT=development
+      - EXTRACTOR_TYPE=mock
+      - API_KEYS=test-api-key-123,forge-secret-dev
+      - LINKEDAPI_TOKEN=${LINKEDAPI_TOKEN:-}
+      - LINKEDAPI_IDENTIFICATION_TOKEN=${LINKEDAPI_IDENTIFICATION_TOKEN:-}
+      - MAX_CONCURRENT_EXTRACTIONS=2
+      - CACHE_TTL_SECONDS=3600
+      - UPSTREAM_TIMEOUT_SECONDS=120
+    restart: unless-stopped

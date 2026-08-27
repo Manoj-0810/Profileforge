@@ -1,0 +1,66 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "田中 健太 (Kenta Tanaka)",
+    "urn": "urn:li:member:998877665",
+    "publicUrl": "https://www.linkedin.com/in/kenta-tanaka",
+    "hashedUrl": "https://www.linkedin.com/in/k3nt4T4n4k4",
+    "headline": "シニアソフトウェアエンジニア @ 東京テック",
+    "location": "Tokyo, Japan",
+    "countryCode": "JP",
+    "position": "シニアソフトウェアエンジニア",
+    "companyName": "東京テック株式会社",
+    "companyHashedUrl": "https://www.linkedin.com/company/tokyotech",
+    "followersCount": 2400,
+    "about": "クラウドインフラストラクチャとマイクロサービスの設計開発に従事しています。",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "シニアソフトウェアエンジニア",
+            "companyName": "東京テック株式会社",
+            "companyHashedUrl": "https://www.linkedin.com/company/tokyotech",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "決済システムのマイクロサービス化プロジェクトをリード。",
+            "duration": 30,
+            "startTime": "2023-04-01T00:00:00Z",
+            "endTime": null,
+            "location": "東京都 港区"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": [
+          {
+            "schoolName": "東京大学 (The University of Tokyo)",
+            "schoolHashedUrl": "https://www.linkedin.com/company/utokyo",
+            "details": "工学部 情報工学科 学士"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Go言語" },
+          { "name": "Kubernetes" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "Japanese", "proficiency": "Native" },
+          { "name": "English", "proficiency": "Professional working" }
+        ]
+      }
+    ]
+  }
+}

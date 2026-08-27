@@ -1,0 +1,49 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Maya Lin",
+    "urn": "urn:li:member:392019482",
+    "publicUrl": "https://www.linkedin.com/in/maya-lin-skills",
+    "hashedUrl": "https://www.linkedin.com/in/m4y4L1n",
+    "headline": "Specialist in AI & Computational Geometry",
+    "location": "Toronto, Ontario, Canada",
+    "countryCode": "CA",
+    "position": null,
+    "companyName": null,
+    "companyHashedUrl": null,
+    "followersCount": 420,
+    "about": null,
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Computational Geometry" },
+          { "name": "Rust" },
+          { "name": "C++" },
+          { "name": "CUDA" },
+          { "name": "WebGL" },
+          { "name": "Computer Graphics" },
+          { "name": "Ray Tracing" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": []
+      }
+    ]
+  }
+}

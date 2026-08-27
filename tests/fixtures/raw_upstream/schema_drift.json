@@ -1,0 +1,12 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "person_identity": {
+      "display_name_raw": "Unknown Schema Change User"
+    },
+    "unexpected_structure_payload": [
+      1, 2, 3
+    ]
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Devon Hayes",
+    "urn": "urn:li:member:558192049",
+    "publicUrl": "https://www.linkedin.com/in/devon-hayes",
+    "hashedUrl": "https://www.linkedin.com/in/d3v0nH4y3s",
+    "headline": "Self-taught DevOps Engineer",
+    "location": "Denver, Colorado, United States",
+    "countryCode": "US",
+    "position": "DevOps Engineer",
+    "companyName": "CloudStack Corp",
+    "companyHashedUrl": "https://www.linkedin.com/company/99201948",
+    "followersCount": 950,
+    "about": "Automating infrastructure and CI/CD pipelines.",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "DevOps Engineer",
+            "companyName": "CloudStack Corp",
+            "companyHashedUrl": "https://www.linkedin.com/company/99201948",
+            "employmentType": "fullTime",
+            "locationType": "remote",
+            "description": "Terraform and Kubernetes orchestration.",
+            "duration": 18,
+            "startTime": "2024-06-01T00:00:00Z",
+            "endTime": null,
+            "location": "Denver, CO"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "Terraform" },
+          { "name": "Docker" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": []
+      }
+    ]
+  }
+}

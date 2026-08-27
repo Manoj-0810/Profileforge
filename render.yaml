@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: profileforge
+    env: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: ENVIRONMENT
+        value: production
+      - key: EXTRACTOR_TYPE
+        sync: false
+      - key: API_KEYS
+        sync: false
+      - key: LINKEDAPI_TOKEN
+        sync: false
+      - key: LINKEDAPI_IDENTIFICATION_TOKEN
+        sync: false
+      - key: MAX_CONCURRENT_EXTRACTIONS
+        value: 2
+      - key: CACHE_TTL_SECONDS
+        value: 3600
+      - key: UPSTREAM_TIMEOUT_SECONDS
+        value: 120

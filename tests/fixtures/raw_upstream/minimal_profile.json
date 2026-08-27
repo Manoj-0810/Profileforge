@@ -1,0 +1,20 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Jane Anonymous",
+    "urn": "urn:li:member:111222333",
+    "publicUrl": "https://www.linkedin.com/in/jane-anon",
+    "hashedUrl": "https://www.linkedin.com/in/j4n34n0n",
+    "headline": null,
+    "location": null,
+    "countryCode": null,
+    "position": null,
+    "companyName": null,
+    "companyHashedUrl": null,
+    "followersCount": 0,
+    "about": null,
+    "profilePicture": null,
+    "then": []
+  }
+}

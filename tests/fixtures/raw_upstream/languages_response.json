@@ -1,0 +1,63 @@
+{
+  "actionType": "st.openPersonPage",
+  "success": true,
+  "data": {
+    "name": "Jean-Luc Dubois",
+    "urn": "urn:li:member:291048291",
+    "publicUrl": "https://www.linkedin.com/in/jean-luc-dubois",
+    "hashedUrl": "https://www.linkedin.com/in/j34nLucDub01s",
+    "headline": "International Trade Counsel & Polyglot",
+    "location": "Geneva, Switzerland",
+    "countryCode": "CH",
+    "position": "Senior Legal Counsel",
+    "companyName": "Global Trade Association",
+    "companyHashedUrl": "https://www.linkedin.com/company/globaltrade",
+    "followersCount": 5100,
+    "about": "Advising multinational enterprises on cross-border transactions and treaty compliance.",
+    "profilePicture": null,
+    "then": [
+      {
+        "actionType": "st.retrievePersonExperience",
+        "success": true,
+        "data": [
+          {
+            "position": "Senior Legal Counsel",
+            "companyName": "Global Trade Association",
+            "companyHashedUrl": "https://www.linkedin.com/company/globaltrade",
+            "employmentType": "fullTime",
+            "locationType": "onSite",
+            "description": "Cross-border litigation and trade advisory.",
+            "duration": 50,
+            "startTime": "2022-01-01T00:00:00Z",
+            "endTime": null,
+            "location": "Geneva, Switzerland"
+          }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonEducation",
+        "success": true,
+        "data": []
+      },
+      {
+        "actionType": "st.retrievePersonSkills",
+        "success": true,
+        "data": [
+          { "name": "International Law" },
+          { "name": "Arbitration" }
+        ]
+      },
+      {
+        "actionType": "st.retrievePersonLanguages",
+        "success": true,
+        "data": [
+          { "name": "French", "proficiency": "Native" },
+          { "name": "English", "proficiency": "Bilingual" },
+          { "name": "Spanish", "proficiency": "Full professional" },
+          { "name": "Mandarin", "proficiency": "Professional working" },
+          { "name": "Arabic", "proficiency": "Elementary" }
+        ]
+      }
+    ]
+  }
+}
