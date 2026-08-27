@@ -135,6 +135,10 @@ class ProfileService:
         except Exception as exc:
             if not future.done():
                 future.set_exception(exc)
+                try:
+                    _ = future.exception()
+                except Exception:
+                    pass
             raise
 
         finally:

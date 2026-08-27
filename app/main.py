@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 from fastapi import Depends, FastAPI, Request, status
@@ -152,6 +153,23 @@ async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONRe
         content=error_payload.model_dump(),
         headers={"X-Request-ID": request_id} if request_id else {},
     )
+
+
+# Root Endpoint
+@app.get("/", include_in_schema=False)
+async def root() -> dict[str, Any]:
+    """Root landing endpoint providing API metadata and documentation links."""
+    return {
+        "service": "ProfileForge API",
+        "version": "1.0.0",
+        "status": "operational",
+        "docs_url": "/docs",
+        "redoc_url": "/redoc",
+        "health_check": "/healthz",
+        "readiness_check": "/readyz",
+        "lookup_endpoint": "POST /v1/profile",
+        "message": "Welcome to ProfileForge! Navigate to http://127.0.0.1:10000/docs for the interactive Swagger UI.",
+    }
 
 
 # Health & Diagnostics Endpoints
