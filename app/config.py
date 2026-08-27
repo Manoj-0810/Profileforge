@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -75,3 +76,52 @@ class Settings(BaseSettings):
 
 # Singleton instance
 settings = Settings()
+
+
+def save_env_credentials(
+    linkedapi_token: str | None = None,
+    identification_token: str | None = None,
+    api_key: str | None = None,
+    extractor_type: str | None = None,
+) -> dict[str, Any]:
+    """Persist credentials and configuration to .env file and update settings singleton."""
+    from pathlib import Path
+
+    env_path = Path(".env")
+    current_vars: dict[str, str] = {}
+
+    if env_path.exists():
+        for line in env_path.read_text(encoding="utf-8").splitlines():
+            line_str = line.strip()
+            if line_str and not line_str.startswith("#") and "=" in line_str:
+                k, v = line_str.split("=", 1)
+                current_vars[k.strip()] = v.strip()
+
+    if linkedapi_token is not None:
+        current_vars["LINKEDAPI_TOKEN"] = linkedapi_token
+        settings.LINKEDAPI_TOKEN = linkedapi_token
+
+    if identification_token is not None:
+        current_vars["LINKEDAPI_IDENTIFICATION_TOKEN"] = identification_token
+        settings.LINKEDAPI_IDENTIFICATION_TOKEN = identification_token
+
+    if extractor_type is not None:
+        current_vars["EXTRACTOR_TYPE"] = extractor_type
+        settings.EXTRACTOR_TYPE = extractor_type
+
+    if api_key is not None and api_key.strip():
+        if api_key not in settings.API_KEYS:
+            settings.API_KEYS.append(api_key)
+        current_vars["API_KEYS"] = ",".join(settings.API_KEYS)
+
+    out_lines = [f"{k}={v}" for k, v in current_vars.items()]
+    env_path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+
+    return {
+        "status": "success",
+        "extractor_type": settings.EXTRACTOR_TYPE,
+        "has_linkedapi_token": bool(settings.LINKEDAPI_TOKEN),
+        "has_identification_token": bool(settings.LINKEDAPI_IDENTIFICATION_TOKEN),
+        "api_keys": settings.API_KEYS,
+    }
+

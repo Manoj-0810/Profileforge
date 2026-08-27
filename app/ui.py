@@ -37,6 +37,8 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     .logo {
       display: flex;
@@ -59,15 +61,131 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       flex: 1;
       max-width: 1200px;
       width: 100%;
-      margin: 2rem auto;
+      margin: 1.5rem auto;
       padding: 0 1.5rem;
     }
     .hero {
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.5rem;
     }
     .hero h1 { font-size: 2.25rem; font-weight: 700; margin-bottom: 0.5rem; }
     .hero p { color: var(--text-muted); font-size: 1.05rem; }
+    
+    /* Mode Banner & Settings Panel */
+    .config-panel {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .config-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .config-header .title {
+      font-weight: 600;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .mode-indicator {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .mode-indicator.mock {
+      background: #78350f;
+      color: #fde68a;
+      border: 1px solid #b45309;
+    }
+    .mode-indicator.live {
+      background: #064e3b;
+      color: #6ee7b7;
+      border: 1px solid #047857;
+    }
+    .config-body {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #334155;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 800px) {
+      .config-body { grid-template-columns: 1fr; }
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+    .form-group label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+    .form-group input {
+      background: #0f172a;
+      border: 1px solid #334155;
+      color: #fff;
+      padding: 0.65rem 0.85rem;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .form-group input:focus {
+      border-color: var(--primary);
+    }
+    .config-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .btn-save {
+      background: #10b981;
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-save:hover { background: #059669; }
+    .btn-switch-mock {
+      background: #475569;
+      color: #fff;
+      border: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn-switch-mock:hover { background: #334155; }
+    .save-alert {
+      grid-column: 1 / -1;
+      font-size: 0.85rem;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      display: none;
+    }
+    .save-alert.success { background: #064e3b; color: #6ee7b7; display: block; }
+    .save-alert.error { background: #450a0a; color: #fca5a5; display: block; }
+
+    /* Search Bar */
     .search-card {
       background: var(--card-bg);
       border: 1px solid var(--card-border);
@@ -100,7 +218,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       border-color: var(--primary);
     }
     .api-key-input {
-      max-width: 250px;
+      max-width: 220px;
     }
     button.btn-primary {
       background: var(--primary);
@@ -305,7 +423,6 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
     </div>
     <div class="header-links">
       <a href="/docs" target="_blank">Swagger OpenAPI Docs</a>
-      <a href="/redoc" target="_blank">Redoc</a>
       <a href="/healthz" target="_blank">Health Check (/healthz)</a>
       <a href="/readyz" target="_blank">Readiness (/readyz)</a>
     </div>
@@ -314,7 +431,46 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
   <main>
     <div class="hero">
       <h1>LinkedIn Profile Lookup API</h1>
-      <p>Paste any LinkedIn profile URL below or click a sample to see real-time parsing, caching, and data quality scoring.</p>
+      <p>Dual Mode: Test offline with Rich Mock Data, or enter your LinkedAPI credentials to fetch live LinkedIn profiles in real time.</p>
+    </div>
+
+    <!-- Live vs Mock Provider Settings Panel -->
+    <div class="config-panel">
+      <div class="config-header" onclick="toggleConfig()">
+        <div class="title">
+          <span>⚙️ Provider Mode & Real-Time Credentials</span>
+          <span style="font-size:0.8rem; color:#94a3b8;">(Click to expand/collapse)</span>
+        </div>
+        <div id="activeModeBadge" class="mode-indicator mock">
+          <span>Mode: 🟡 Rich Mock Data</span>
+        </div>
+      </div>
+
+      <div class="config-body" id="configBody">
+        <div class="form-group">
+          <label>LinkedAPI Developer Token (`LINKEDAPI_TOKEN`)</label>
+          <input type="text" id="cfgLinkedToken" placeholder="Paste token from app.linkedapi.io">
+        </div>
+        <div class="form-group">
+          <label>LinkedIn Identification Token (`LINKEDAPI_IDENTIFICATION_TOKEN`)</label>
+          <input type="text" id="cfgIdToken" placeholder="Paste session token from app.linkedapi.io">
+        </div>
+        <div class="form-group">
+          <label>Authorized API Key (`API_KEYS`)</label>
+          <input type="text" id="cfgApiKey" placeholder="Custom API Key (or leave test-api-key-123)" value="test-api-key-123">
+        </div>
+        <div class="form-group">
+          <label>Provider Type</label>
+          <input type="text" id="cfgExtractorType" value="linkedapi" readonly style="opacity:0.7;">
+        </div>
+
+        <div class="config-actions">
+          <button class="btn-save" onclick="saveCredentials()">💾 Save to .env & Enable Live Real-Time Fetching</button>
+          <button class="btn-switch-mock" onclick="switchToMock()">🟡 Switch to Offline Mock Mode</button>
+        </div>
+
+        <div class="save-alert" id="saveAlert"></div>
+      </div>
     </div>
 
     <div class="search-card">
@@ -429,6 +585,85 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
   </main>
 
   <script>
+    function toggleConfig() {
+      const body = document.getElementById('configBody');
+      body.style.display = body.style.display === 'none' ? 'grid' : 'none';
+    }
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/v1/config/status');
+        if (res.ok) {
+          const st = await res.json();
+          const badge = document.getElementById('activeModeBadge');
+          if (st.extractor_type === 'linkedapi' && st.has_linkedapi_token) {
+            badge.className = 'mode-indicator live';
+            badge.innerHTML = '<span>Mode: 🟢 Live Real-Time Fetch</span>';
+          } else {
+            badge.className = 'mode-indicator mock';
+            badge.innerHTML = '<span>Mode: 🟡 Rich Mock Data</span>';
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function saveCredentials() {
+      const token = document.getElementById('cfgLinkedToken').value.trim();
+      const idToken = document.getElementById('cfgIdToken').value.trim();
+      const apiKey = document.getElementById('cfgApiKey').value.trim() || 'test-api-key-123';
+      const alertBox = document.getElementById('saveAlert');
+
+      if (!token || !idToken) {
+        alertBox.className = 'save-alert error';
+        alertBox.innerText = 'Please enter both LinkedAPI Token and Identification Token to enable live fetching.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/v1/config/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            linkedapi_token: token,
+            identification_token: idToken,
+            api_key: apiKey,
+            extractor_type: 'linkedapi'
+          })
+        });
+
+        if (res.ok) {
+          alertBox.className = 'save-alert success';
+          alertBox.innerText = '✅ Credentials saved to .env! Real-time live extraction is now active.';
+          document.getElementById('apiKeyInput').value = apiKey;
+          checkStatus();
+        } else {
+          alertBox.className = 'save-alert error';
+          alertBox.innerText = 'Failed to save credentials to .env';
+        }
+      } catch (e) {
+        alertBox.className = 'save-alert error';
+        alertBox.innerText = 'Error saving credentials: ' + e.message;
+      }
+    }
+
+    async function switchToMock() {
+      const alertBox = document.getElementById('saveAlert');
+      try {
+        await fetch('/v1/config/credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ extractor_type: 'mock' })
+        });
+        document.getElementById('apiKeyInput').value = 'test-api-key-123';
+        alertBox.className = 'save-alert success';
+        alertBox.innerText = '🟡 Switched to Offline Rich Mock Data mode (test-api-key-123 active).';
+        checkStatus();
+      } catch (e) {
+        alertBox.className = 'save-alert error';
+        alertBox.innerText = 'Error switching mode: ' + e.message;
+      }
+    }
+
     function setSample(url) {
       document.getElementById('urlInput').value = url;
       fetchProfile();
@@ -567,8 +802,11 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       }
     }
 
-    // Auto-fetch on page load
-    window.addEventListener('DOMContentLoaded', fetchProfile);
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      checkStatus();
+      fetchProfile();
+    });
   </script>
 </body>
 </html>

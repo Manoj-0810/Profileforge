@@ -56,9 +56,15 @@ class ProfileService:
             languages_count=len(profile.languages),
         )
 
-    async def lookup(self, raw_url: str, request_id: str) -> ProfileLookupResponse:
+    async def lookup(
+        self,
+        raw_url: str,
+        request_id: str,
+        override_extractor: ProfileExtractor | None = None,
+    ) -> ProfileLookupResponse:
         """Coordinate profile lookup with validation, cache-aside, and request coalescing."""
         canonical_url, profile_id = validate_and_canonicalize_url(raw_url)
+        active_extractor = override_extractor or self.extractor
 
         # 1. Check cache
         cached_profile = await self.cache.get(profile_id)
@@ -71,7 +77,7 @@ class ProfileService:
                 profile=cached_profile,
                 fetched_at=datetime.now(timezone.utc),
                 cache_hit=True,
-                source=self.extractor.capabilities.provider_name,
+                source=active_extractor.capabilities.provider_name,
                 request_id=request_id,
                 data_quality=dq,
             )
@@ -100,7 +106,7 @@ class ProfileService:
                 profile=profile,
                 fetched_at=datetime.now(timezone.utc),
                 cache_hit=True,
-                source=self.extractor.capabilities.provider_name,
+                source=active_extractor.capabilities.provider_name,
                 request_id=request_id,
                 data_quality=dq,
             )
@@ -111,9 +117,10 @@ class ProfileService:
                 "profile_upstream_fetch_start",
                 profile_id=profile_id,
                 request_id=request_id,
+                provider=active_extractor.capabilities.provider_name,
             )
             async with self.semaphore:
-                profile = await self.extractor.fetch(canonical_url)
+                profile = await active_extractor.fetch(canonical_url)
 
             # Store in cache
             await self.cache.set(profile_id, profile)
@@ -127,7 +134,7 @@ class ProfileService:
                 profile=profile,
                 fetched_at=datetime.now(timezone.utc),
                 cache_hit=False,
-                source=self.extractor.capabilities.provider_name,
+                source=active_extractor.capabilities.provider_name,
                 request_id=request_id,
                 data_quality=dq,
             )
