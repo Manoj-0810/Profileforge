@@ -44,9 +44,15 @@ class LinkedInRequestBuilder:
         cls,
         jsessionid: str,
         user_agent: str,
+        slug: str = "",
     ) -> dict[str, str]:
         """Construct standard browser-like Rest.li request headers."""
         csrf_token = cls.derive_csrf_token(jsessionid)
+        referer = (
+            f"https://www.linkedin.com/in/{slug}/"
+            if slug
+            else "https://www.linkedin.com/"
+        )
         return {
             "csrf-token": csrf_token,
             "x-restli-protocol-version": "2.0.0",
@@ -55,6 +61,11 @@ class LinkedInRequestBuilder:
             "x-li-track": "{}",
             "x-li-page-instance": "urn:li:page:d_flagship3_profile_view_base;null",
             "user-agent": user_agent,
+            "origin": "https://www.linkedin.com",
+            "referer": referer,
+            "sec-ch-ua": '"Chromium";v="133", "Not(A:Brand";v="99", "Google Chrome";v="133"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
@@ -134,7 +145,9 @@ class LinkedInClient:
                 status_code=503,
             )
 
-        headers = LinkedInRequestBuilder.build_headers(self.jsessionid, self.user_agent)
+        headers = LinkedInRequestBuilder.build_headers(
+            self.jsessionid, self.user_agent, slug=slug
+        )
         cookies = LinkedInRequestBuilder.build_cookies(self.li_at, self.jsessionid)
         client = self._get_client()
 
