@@ -21,7 +21,10 @@ CRITICAL_SECRET_SIGNATURES = [
 
 # Signatures for application source code (excluding tests, docs, and templates)
 APP_SECRET_SIGNATURES = [
-    re.compile(r"(?:password|secret|api_key)\s*=\s*['\"][a-zA-Z0-9_!@#$%^&*()\-+=]{24,}['\"]", re.IGNORECASE),
+    re.compile(
+        r"(?:password|secret|api_key)\s*=\s*['\"][a-zA-Z0-9_!@#$%^&*()\-+=]{24,}['\"]",
+        re.IGNORECASE,
+    ),
 ]
 
 
