@@ -7,45 +7,39 @@ import os
 import pytest
 
 from app.config import settings
-from app.providers.linkedapi.client import LinkedAPIClient
-from app.providers.linkedapi.normalizer import LinkedAPINormalizer
-from app.providers.linkedapi.parser import LinkedAPIParser
+from app.extractor.linkedin_direct import DirectLinkedInExtractor
+from app.providers.linkedin.client import LinkedInClient
 
 
 @pytest.mark.asyncio
-async def test_live_linkedapi_smoke_lookup():
-    """Live smoke test executing a real profile lookup against api.linkedapi.io.
+async def test_live_linkedin_smoke_lookup():
+    """Live smoke test executing a real direct HTTP profile lookup against LinkedIn.
 
     Skipped automatically in offline/CI environments unless live credentials are provided.
     """
-    token = settings.LINKEDAPI_TOKEN or os.getenv("LINKEDAPI_TOKEN")
-    ident = settings.LINKEDAPI_IDENTIFICATION_TOKEN or os.getenv(
-        "LINKEDAPI_IDENTIFICATION_TOKEN"
-    )
+    li_at = settings.LINKEDIN_LI_AT or os.getenv("LINKEDIN_LI_AT")
+    jsessionid = settings.LINKEDIN_JSESSIONID or os.getenv("LINKEDIN_JSESSIONID")
     target_url = os.getenv(
         "LIVE_TEST_PROFILE_URL", "https://www.linkedin.com/in/williamhgates"
     )
 
-    if not token or not ident:
+    if not li_at or not jsessionid:
         pytest.skip(
-            "Live smoke test skipped: Set LINKEDAPI_TOKEN and LINKEDAPI_IDENTIFICATION_TOKEN to run."
+            "Live smoke test skipped: Set LINKEDIN_LI_AT and LINKEDIN_JSESSIONID to run."
         )
 
-    client = LinkedAPIClient(
-        api_token=token,
-        identification_token=ident,
-        timeout_seconds=120.0,
-        poll_interval_seconds=3.0,
+    client = LinkedInClient(
+        li_at=li_at,
+        jsessionid=jsessionid,
+        user_agent=settings.LINKEDIN_USER_AGENT,
+        proxy_url=settings.LINKEDIN_PROXY_URL,
+        timeout_seconds=settings.UPSTREAM_TIMEOUT_SECONDS,
     )
-    parser = LinkedAPIParser()
-    normalizer = LinkedAPINormalizer()
+    extractor = DirectLinkedInExtractor(client=client)
 
-    completion = await client.execute_profile_workflow(target_url)
-    assert completion.get("success") is True
-
-    parsed = parser.parse(completion)
-    assert parsed.name, "Live parsed profile must have a valid non-empty name"
-
-    profile = normalizer.normalize(parsed, target_url)
-    assert profile.full_name == parsed.name
-    assert profile.canonical_url.startswith("https://www.linkedin.com/in/")
+    try:
+        profile = await extractor.fetch(target_url)
+        assert profile.full_name, "Live parsed profile must have a valid non-empty name"
+        assert profile.canonical_url.startswith("https://www.linkedin.com/in/")
+    finally:
+        await client.close()

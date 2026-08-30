@@ -22,20 +22,19 @@ class ProviderCapabilities(BaseModel):
             "full_name",
             "headline",
             "location",
+            "about",
             "experience",
             "education",
             "skills",
-            "languages",
-        }
-    )
-    unsupported_sections: set[str] = Field(
-        default_factory=lambda: {
             "certifications",
-            "about",
+            "languages",
             "profile_image_url",
         }
     )
-    supports_realtime_polling: bool = True
+    unsupported_sections: set[str] = Field(
+        default_factory=set,
+    )
+    supports_realtime_polling: bool = False
     max_recommended_concurrency: int = 2
 
 
@@ -209,10 +208,20 @@ class ProfileData(BaseModel):
 class ProfileLookupRequest(BaseModel):
     """Incoming request body for profile lookup."""
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "url": "https://www.linkedin.com/in/sarah-jenkins-dev",
+                "bypass_cache": False,
+            }
+        }
+    )
+
     url: str = Field(
         ...,
+        min_length=2,
+        max_length=2048,
         description="Public LinkedIn profile URL (e.g. https://www.linkedin.com/in/username)",
-        examples=["https://www.linkedin.com/in/sarah-jenkins-dev"],
     )
     bypass_cache: bool = Field(
         default=False,
@@ -234,7 +243,7 @@ class ProfileLookupResponse(BaseModel):
         default=False, description="True if served from cache, False if fresh fetch"
     )
     source: str = Field(
-        default="linkedapi", description="Extraction provider identifier"
+        default="linkedin", description="Extraction provider identifier"
     )
     request_id: str = Field(description="Unique correlation ID for tracing")
     data_quality: DataQuality = Field(description="Completeness and quality assessment")

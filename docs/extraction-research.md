@@ -1,72 +1,93 @@
 # ProfileForge — Extraction & Integration Research
 
-## 1. Executive Summary
+> This is the current implementation record. The earlier third-party workflow
+> research was archived under `docs/archive/linkedapi/`; it is not part of the
+> runtime or submission architecture.
 
-This document summarizes the reverse-engineering and integration research conducted for the ProfileForge Profile Lookup API.
+## 1. Requirement and decision
 
-### 1.1 Evaluated Provider Approaches
-1. **Official LinkedIn API**: Restricted to enterprise partner scopes (Talent Solutions / Marketing). Does not support arbitrary public profile lookups for independent developers.
-2. **Voyager API with `li_at` Session Cookie**: High ban risk, violates LinkedIn Terms of Service, blocked by anti-scraping fingerprinting (Spectroscopy). Rejected.
-3. **Third-Party Legacy Proxies (e.g. Proxycurl)**: Defunct / shut down post-2025 litigation.
-4. **LinkedAPI REST Workflow API**: Account-based automation using cloud-browser simulation on behalf of the developer's authorized LinkedIn account. **Selected**.
+The Tross clarification requires a purely reverse-engineered LinkedIn solution
+that directly hits LinkedIn endpoints and does not use a browser. ProfileForge
+therefore uses a first-party direct HTTP provider with an authorized LinkedIn
+session. The optional HTML playground is only a client for ProfileForge; it is
+not involved in LinkedIn acquisition.
 
----
+Evaluated approaches:
 
-## 2. LinkedAPI REST Interface & Lifecycle
+1. **Official LinkedIn API** — not suitable for arbitrary public profile
+   lookups under the available independent-developer scopes.
+2. **Third-party enrichment/workflow services** — rejected because they add an
+   external dependency and do not demonstrate the required direct endpoint
+   integration.
+3. **Browser automation or cloud browsers** — explicitly excluded by the
+   clarification.
+4. **Direct Voyager HTTP** — selected: explicit requests, session cookies,
+   CSRF derivation, normalized entity parsing, and bounded failure handling.
 
-LinkedAPI provides a dedicated REST HTTP interface at `https://api.linkedapi.io`. All actions run as asynchronous **Workflows** to simulate human interaction rates.
+## 2. Direct HTTP contract
 
-### 2.1 Authentication Headers
-Every request to `api.linkedapi.io` requires two credentials:
-- `linked-api-token`: Developer account authorization token.
-- `identification-token`: Identifier corresponding to the connected LinkedIn session.
+The production adapter is implemented in
+`app/providers/linkedin/client.py` and uses `httpx.AsyncClient` only.
 
-### 2.2 Workflow Execution Protocol
 ```text
-POST https://api.linkedapi.io/workflows
-      ↓
-Returns { workflowId, workflowStatus: "pending" | "running" }
-      ↓
-Loop GET https://api.linkedapi.io/workflows/{workflowId} every 3s
-      ↓
-Terminal Status: "completed" (with completion.data) OR "failed" (with failure.reason)
+GET https://www.linkedin.com/voyager/api/identity/dash/profiles
+    ?q=memberIdentity
+    &memberIdentity={public_slug}
+    &decorationId=com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93
 ```
 
-### 2.3 Verified Action Names & Expected Return Shapes
-- `st.openPersonPage` (with `basicInfo: true`): Returns name, headline, location, countryCode, position, companyName, urn, followersCount.
-- `st.retrievePersonExperience`: Returns structured list of experience entries with duration, startTime, endTime, company, title, description.
-- `st.retrievePersonEducation`: Returns list of education records with schoolName, details.
-- `st.retrievePersonSkills`: Returns skills list.
-- `st.retrievePersonLanguages`: Returns languages list.
+The request sends:
 
-### 2.4 Unverified / Provisional Fields Status
-- **Certifications**: Current documented finding: Not exposed in the primary `st.retrieve*` action set. Final status: Will be verified during live test request.
-- **About / Summary**: Current documented finding: Not explicitly listed in basicInfo payload. Final status: Will check if returned in full profile object during live verification.
-- **Profile Image**: Current documented finding: Not listed in documented sample. Final status: Will check if `profilePicture` or `avatar` key exists in live response.
+- `li_at` and `JSESSIONID` as session cookies from an authorized account;
+- `csrf-token`, derived from `JSESSIONID` with surrounding quotes removed;
+- `x-restli-protocol-version: 2.0.0`;
+- LinkedIn's normalized JSON media type and `x-li-lang: en_US` headers;
+- a configurable user-agent and optional proxy, without starting a browser.
 
----
+The client follows no redirects. Authwall, checkpoint, login, rate-limit, and
+HTTP 999 responses are classified explicitly so the service does not mistake a
+challenge page for profile data or attempt to bypass it.
 
-## 3. Technology & Architecture Selections
+## 3. Reverse-engineered response pipeline
 
-### 3.1 Python Runtime Target: Python 3.12
-- **Rationale**: Python 3.12 provides optimal production stability, mature binary wheels for all dependencies (`pydantic-core`, `uvicorn`, `httpx`), and predictable async event loop performance.
-- **Verification**: All core dependencies (`fastapi`, `pydantic>=2.0`, `httpx>=0.27`, `structlog`, `pytest`, `pytest-asyncio`) have first-class support on Python 3.12.
+Voyager returns a normalized entity graph, generally with a root `data` object
+and an `included[]` entity store. The implementation keeps each responsibility
+separate:
 
-### 3.2 Production Docker Base: `python:3.12-slim`
-- Because we communicate with LinkedAPI via HTTP REST rather than running local browser subprocesses or Node.js CLI packages, **Node.js is completely excluded from the production image**.
-- Produces a minimal, secure container image (~130MB) with a non-root execution user.
+```text
+URL validator → request builder/client → parser → URN resolver → normalizer
+```
 
-### 3.3 Concurrency & Protection Strategy
-- **Application Semaphore**: `MAX_CONCURRENT_EXTRACTIONS=2` (configurable) to prevent downstream request bursts from overloading the single-seat LinkedAPI queue.
-- **Sliding Window Rate Limiter**: Per-API-key rate limiting (e.g. 60 req/min) implemented in middleware.
-- **Cache**: In-memory cache keyed by canonical LinkedIn profile identifier (e.g. `williamhgates`) with configurable TTL (default: 3600s).
+- The parser classifies profile, position, education, skill, certification, and
+  language entities from `$type` and structural fields.
+- The resolver joins entity references and converts date ranges and location
+  metadata into domain values.
+- The normalizer produces the stable public `ProfileData` schema and a
+  deterministic data-quality report, including unavailable sections.
 
----
+The sanitized Voyager fixtures in `tests/fixtures/raw_upstream/` are the
+offline contract for this behavior. A live smoke test is available at
+`tests/e2e/test_live_smoke.py` and runs only when both session cookies are
+provided explicitly.
 
-## 4. Multi-Layered Secret Audit Protocol
+## 4. Evidence and verification boundary
 
-To maintain zero secret leakage across the codebase, tests, and documentation:
-1. **Automated Secret Scanner**: Regex scan across all files excluding `.git` for token patterns, cookies, and keys.
-2. **Git Tracking Audit**: `git ls-files` to ensure no `.env`, credentials, or temporary debug logs are staged.
-3. **Fixture Sanitization**: All fixtures under `tests/fixtures/raw_upstream/` are inspected to verify synthetic names, zero authentication tokens, and scrubbed identifiers.
-4. **Log Redaction**: Structured logger middleware explicitly redacts `linked-api-token`, `identification-token`, `x-api-key`, and `authorization` headers.
+The repository verifies the HTTP contract, cookie/CSRF construction, parser
+behavior, error mapping, caching, concurrency, security controls, and API
+schema entirely offline. It does not claim that a live LinkedIn session is
+valid without credentials; the live smoke test is intentionally conditional.
+
+LinkedIn's internal endpoint and decoration identifiers can change. A
+production deployment must therefore record the date of its live smoke test,
+keep credentials in deployment secrets, and rotate the endpoint contract when
+LinkedIn changes its response shape.
+
+## 5. Security boundary
+
+- Public callers authenticate with ProfileForge's `X-API-Key`; that key is
+  never reused as an upstream credential.
+- LinkedIn session cookies are server-side environment secrets and are never
+  accepted in request bodies or returned in responses.
+- Logs redact cookies, API keys, authorization headers, and CSRF material.
+- The service detects challenges and rate limits and fails closed; it performs
+  no credential harvesting, CAPTCHA solving, browser emulation, or evasion.

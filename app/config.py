@@ -2,9 +2,21 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEFAULT_DEV_API_KEYS = ["test-api-key-123", "forge-secret-dev"]
+INSECURE_API_KEY_VALUES = {
+    *DEFAULT_DEV_API_KEYS,
+    "your-client-api-key-here",
+    "another-api-key",
+    "change-me",
+    "changeme",
+}
+SUPPORTED_EXTRACTORS = {"mock", "linkedin"}
 
 
 class Settings(BaseSettings):
@@ -18,7 +30,7 @@ class Settings(BaseSettings):
 
     # API Authentication
     API_KEYS: list[str] | str = Field(
-        default_factory=lambda: ["test-api-key-123", "forge-secret-dev"],
+        default_factory=lambda: list(DEFAULT_DEV_API_KEYS),
         description="Comma-separated or list of authorized client API keys for X-API-Key header",
     )
 
@@ -27,29 +39,47 @@ class Settings(BaseSettings):
     def parse_api_keys(cls, v: Any) -> list[str]:
         if isinstance(v, str):
             if v.startswith("[") and v.endswith("]"):
-                import json
                 try:
                     res = json.loads(v)
                     if isinstance(res, list):
-                        return res
-                except Exception:
+                        return [str(key).strip() for key in res if str(key).strip()]
+                except (json.JSONDecodeError, ValueError):
                     pass
             return [k.strip() for k in v.split(",") if k.strip()]
         if isinstance(v, list):
-            return v
-        return ["test-api-key-123", "forge-secret-dev"]
+            return [str(key).strip() for key in v if str(key).strip()]
+        return list(DEFAULT_DEV_API_KEYS)
 
-    # LinkedAPI Credentials
-    LINKEDAPI_TOKEN: str = Field(default="", description="LinkedAPI developer token")
-    LINKEDAPI_IDENTIFICATION_TOKEN: str = Field(
-        default="", description="LinkedAPI LinkedIn session identification token"
+    # Direct LinkedIn Credentials & Session Settings
+    LINKEDIN_LI_AT: str = Field(
+        default="",
+        description="LinkedIn li_at session cookie from authorized session",
+    )
+    LINKEDIN_JSESSIONID: str = Field(
+        default="",
+        description="LinkedIn JSESSIONID session cookie used for CSRF token derivation",
+    )
+    LINKEDIN_USER_AGENT: str = Field(
+        default="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+        description="Realistic User-Agent for direct HTTP requests",
+    )
+    LINKEDIN_PROXY_URL: str | None = Field(
+        default=None,
+        description="Optional proxy URL for routing direct LinkedIn requests",
     )
 
     # Provider & Concurrency Configuration
     EXTRACTOR_TYPE: str = Field(
         default="mock",
-        description="Active extractor provider: 'mock' (default for dev/test) or 'linkedapi'",
+        description="Active extractor provider: 'mock' (default for dev/test) or 'linkedin'",
     )
+
+    @field_validator("EXTRACTOR_TYPE", "ENVIRONMENT", mode="before")
+    @classmethod
+    def normalize_modes(cls, v: Any) -> str:
+        """Normalize deployment mode values before they control application wiring."""
+        return str(v).strip().lower()
+
     MAX_CONCURRENT_EXTRACTIONS: int = Field(
         default=2,
         ge=1,
@@ -62,12 +92,9 @@ class Settings(BaseSettings):
         default=3600, ge=0, description="Cache retention duration in seconds"
     )
     UPSTREAM_TIMEOUT_SECONDS: float = Field(
-        default=120.0,
+        default=30.0,
         ge=5.0,
-        description="Maximum deadline for upstream profile lookup",
-    )
-    LINKEDAPI_POLL_INTERVAL_SECONDS: float = Field(
-        default=3.0, ge=0.5, description="Polling frequency for workflow status checks"
+        description="Maximum deadline for upstream profile lookup in seconds",
     )
 
     # Rate Limiting (per API key)
@@ -91,71 +118,48 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, v: Any) -> list[str]:
         if isinstance(v, str):
             if v.startswith("[") and v.endswith("]"):
-                import json
                 try:
                     res = json.loads(v)
                     if isinstance(res, list):
                         return res
-                except Exception:
+                except (json.JSONDecodeError, ValueError):
                     pass
             return [k.strip() for k in v.split(",") if k.strip()]
         if isinstance(v, list):
             return v
         return []
+
     ENVIRONMENT: str = Field(
         default="development",
         description="Environment tier: development, staging, production",
     )
 
+    def validate_runtime_configuration(self) -> None:
+        """Fail fast on configurations that would make a deployment misleading or unsafe."""
+        environment = self.ENVIRONMENT.strip().lower()
+        extractor = self.EXTRACTOR_TYPE.strip().lower()
+
+        if extractor not in SUPPORTED_EXTRACTORS:
+            raise ValueError(
+                f"EXTRACTOR_TYPE must be one of {sorted(SUPPORTED_EXTRACTORS)}"
+            )
+
+        if environment == "production":
+            if not self.API_KEYS or any(
+                key.lower() in INSECURE_API_KEY_VALUES or not key.strip()
+                for key in self.API_KEYS
+            ):
+                raise ValueError(
+                    "Production requires API_KEYS containing non-default client keys."
+                )
+            if extractor == "linkedin" and not (
+                self.LINKEDIN_LI_AT.strip() and self.LINKEDIN_JSESSIONID.strip()
+            ):
+                raise ValueError(
+                    "Production LinkedIn mode requires LINKEDIN_LI_AT and "
+                    "LINKEDIN_JSESSIONID."
+                )
+
 
 # Singleton instance
 settings = Settings()
-
-
-def save_env_credentials(
-    linkedapi_token: str | None = None,
-    identification_token: str | None = None,
-    api_key: str | None = None,
-    extractor_type: str | None = None,
-) -> dict[str, Any]:
-    """Persist credentials and configuration to .env file and update settings singleton."""
-    from pathlib import Path
-
-    env_path = Path(".env")
-    current_vars: dict[str, str] = {}
-
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line_str = line.strip()
-            if line_str and not line_str.startswith("#") and "=" in line_str:
-                k, v = line_str.split("=", 1)
-                current_vars[k.strip()] = v.strip()
-
-    if linkedapi_token is not None:
-        current_vars["LINKEDAPI_TOKEN"] = linkedapi_token
-        settings.LINKEDAPI_TOKEN = linkedapi_token
-
-    if identification_token is not None:
-        current_vars["LINKEDAPI_IDENTIFICATION_TOKEN"] = identification_token
-        settings.LINKEDAPI_IDENTIFICATION_TOKEN = identification_token
-
-    if extractor_type is not None:
-        current_vars["EXTRACTOR_TYPE"] = extractor_type
-        settings.EXTRACTOR_TYPE = extractor_type
-
-    if api_key is not None and api_key.strip():
-        if api_key not in settings.API_KEYS:
-            settings.API_KEYS.append(api_key)
-        current_vars["API_KEYS"] = ",".join(settings.API_KEYS)
-
-    out_lines = [f"{k}={v}" for k, v in current_vars.items()]
-    env_path.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
-
-    return {
-        "status": "success",
-        "extractor_type": settings.EXTRACTOR_TYPE,
-        "has_linkedapi_token": bool(settings.LINKEDAPI_TOKEN),
-        "has_identification_token": bool(settings.LINKEDAPI_IDENTIFICATION_TOKEN),
-        "api_keys": settings.API_KEYS,
-    }
-

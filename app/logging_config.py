@@ -16,10 +16,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 SENSITIVE_HEADERS = {
     "authorization",
     "x-api-key",
-    "linked-api-token",
-    "identification-token",
     "cookie",
     "set-cookie",
+    "csrf-token",
+    "li_at",
+    "jsessionid",
+    "x-li-track",
+    "proxy-authorization",
 }
 
 

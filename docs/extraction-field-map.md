@@ -1,75 +1,49 @@
-# ProfileForge — Extraction Field Map & Provider Capabilities
+# ProfileForge — Extraction Field Map
 
-## 1. Overview & Verification Status
-
-This document defines the field-level contract between the upstream provider payload and the normalized `ProfileData` domain model, incorporating dynamic **Provider Capabilities** for deterministic data quality and completeness scoring.
-
----
-
-## 2. ProviderCapabilities Abstraction
-
-Providers explicitly declare their supported extraction capabilities so the application evaluates data quality relative to what the active provider can actually extract, rather than penalizing profiles for provider-unsupported attributes.
-
-```python
-class ProviderCapabilities(BaseModel):
-    provider_name: str
-    supported_sections: set[str]  # e.g., {"full_name", "headline", "location", "experience", "education", "skills", "languages"}
-    unsupported_sections: set[str]  # e.g., {"certifications", "about", "profile_image_url"}
-    supports_realtime_polling: bool = True
-    max_recommended_concurrency: int = 2
-```
+## 1. Overview
+This document specifies the exact mapping between LinkedIn Voyager upstream JSON structures and ProfileForge domain models (`app/models.py`).
 
 ---
 
-## 3. Comprehensive Field Mapping Matrix
+## 2. Field Mapping Table
 
-| Output Field | Provider Action / Source | Upstream Field Path | Entity / Reference | Transformation | Fallback | Unavailable Behavior | Parser Failure Behavior | Test Fixture |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `full_name` | `st.openPersonPage` (basicInfo: true) | `data.name` | Direct string | Strip whitespace | `None` | `missing_sections += "full_name"` | `PARSER_FAILURE` if non-string | `complete_profile.json` |
-| `headline` | `st.openPersonPage` (basicInfo: true) | `data.headline` | Direct string | Trim whitespace | `None` | `missing_sections += "headline"` | `PARSER_FAILURE` if invalid type | `complete_profile.json` |
-| `location` | `st.openPersonPage` (basicInfo: true) | `data.location` | Direct string | Trim whitespace | `None` | `missing_sections += "location"` | `PARSER_FAILURE` if invalid type | `complete_profile.json` |
-| `country_code` | `st.openPersonPage` (basicInfo: true) | `data.countryCode` | ISO 3166-1 alpha-2 | Uppercase 2-char code | `None` | `null` | `PARSER_FAILURE` if non-string | `complete_profile.json` |
-| `about` | `st.openPersonPage` (basicInfo: true) | `data.about` / `data.summary` | Direct string | Trim whitespace | `None` | `unavailable_sections += "about"` (if unexposed) | `PARSER_FAILURE` if invalid type | `missing_about.json` |
-| `profile_image_url` | `st.openPersonPage` (basicInfo: true) | `data.profilePicture` / `data.avatar` | URL string | Validate HTTPS format | `None` | `unavailable_sections += "profile_image_url"` | `PARSER_FAILURE` if malformed URL | `missing_image.json` |
-| `profile_url` | `st.openPersonPage` (basicInfo: true) | `data.publicUrl` | URL string | Canonicalize format | Input canonical URL | Always populated | `PARSER_FAILURE` if unparseable | `complete_profile.json` |
-| `urn` | `st.openPersonPage` (basicInfo: true) | `data.urn` | Member URN (`urn:li:member:...`) | Validate prefix | `None` | `null` | `PARSER_FAILURE` if non-string | `complete_profile.json` |
-| `current_position` | `st.openPersonPage` (basicInfo: true) | `data.position` | Direct string | Trim whitespace | First entry of `experience` | `null` | `PARSER_FAILURE` if invalid type | `complete_profile.json` |
-| `current_company` | `st.openPersonPage` (basicInfo: true) | `data.companyName` | Direct string | Trim whitespace | First entry company of `experience` | `null` | `PARSER_FAILURE` if invalid type | `complete_profile.json` |
-| `followers_count` | `st.openPersonPage` (basicInfo: true) | `data.followersCount` | Integer | Integer conversion | `None` | `null` | `PARSER_FAILURE` if non-int | `complete_profile.json` |
-| `experience[]` | `st.retrievePersonExperience` | `then[].data[]` | Array of objects | Map each item to `ExperienceEntry` | `[]` | `missing_sections += "experience"` | `PARSER_FAILURE` if non-list | `multiple_experience.json` |
-| `education[]` | `st.retrievePersonEducation` | `then[].data[]` | Array of objects | Map each item to `EducationEntry` | `[]` | `missing_sections += "education"` | `PARSER_FAILURE` if non-list | `multiple_education.json` |
-| `skills[]` | `st.retrievePersonSkills` | `then[].data[]` | Array of objects / strings | Extract skill name strings | `[]` | `missing_sections += "skills"` | `PARSER_FAILURE` if malformed | `skills_only.json` |
-| `certifications[]` | `st.retrievePersonCertifications` (Provisional) | `then[].data[]` | Array of objects | Map to `CertificationEntry` | `[]` | `unavailable_sections += "certifications"` | `PARSER_FAILURE` if malformed | `partial_profile.json` |
-| `languages[]` | `st.retrievePersonLanguages` | `then[].data[]` | Array of objects | Map to `LanguageEntry` | `[]` | `missing_sections += "languages"` | `PARSER_FAILURE` if malformed | `languages_response.json` |
+| Domain Field | Target Model | Upstream Entity Type (`$type`) | Upstream JSON Path | Extraction & Normalization Logic | Fallback / Missing Behavior |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `full_name` | `ProfileData` | `*.Profile` | `firstName` + `lastName` | Concatenate non-empty strings with whitespace. | Set to `N/A` if absent. Flag `PARSER_FAILURE` if root profile entity missing. |
+| `headline` | `ProfileData` | `*.Profile` | `headline` | Trim leading/trailing whitespace. | `None` (listed in `missing_sections`). |
+| `location` | `ProfileData` | `*.Profile` | `locationName` or `geoCountryName` | Trim whitespace. | `None`. |
+| `about` | `ProfileData` | `*.Profile` | `summary` | Preserves newline formatting. | `None`. |
+| `profile_image_url` | `ProfileData` | `*.Profile` | `picture.rootUrl` + artifact `fileIdentifyingUrlPathSegment` | Concatenates root URL with the largest vector artifact image segment. | `None`. |
+| `urn` | `ProfileData` | `*.Profile` | `entityUrn` | e.g. `urn:li:fsd_profile:ACoAAA...` | `None`. |
+| `experience[].title` | `ExperienceEntry` | `*.Position` | `title` | Direct string extraction. | `Untitled Role` if blank. |
+| `experience[].company` | `ExperienceEntry` | `*.Position` | `companyName` or resolved `companyUrn` | Resolved from entity index if `companyName` is empty. | `Unknown Company`. |
+| `experience[].description` | `ExperienceEntry` | `*.Position` | `description` | Multi-line text. | `None`. |
+| `experience[].location` | `ExperienceEntry` | `*.Position` | `locationName` | Geographic role location. | `None`. |
+| `experience[].start_date` | `ExperienceEntry` | `*.Position` | `dateRange.start` (`year`, `month`) | Formats into `YYYY-MM` or `YYYY`. | `None`. |
+| `experience[].end_date` | `ExperienceEntry` | `*.Position` | `dateRange.end` (`year`, `month`) | Formats into `YYYY-MM` or `None` if ongoing. | `None`. |
+| `education[].school` | `EducationEntry` | `*.Education` | `schoolName` or resolved `schoolUrn` | Name of academic institution. | `Unknown Institution`. |
+| `education[].degree` | `EducationEntry` | `*.Education` | `degreeName` | Extracted and normalized using `DEGREE_PATTERNS` regex parser. | `None`. |
+| `education[].field_of_study` | `EducationEntry` | `*.Education` | `fieldOfStudy` | Academic major. | `None`. |
+| `education[].start_date` | `EducationEntry` | `*.Education` | `dateRange.start.year` | Formats into `YYYY`. | `None`. |
+| `education[].end_date` | `EducationEntry` | `*.Education` | `dateRange.end.year` | Formats into `YYYY`. | `None`. |
+| `skills[]` | `ProfileData` | `*.Skill` | `name` | Extracted as clean string array. | `[]`. |
+| `certifications[].name` | `CertificationEntry` | `*.Certification` | `name` | Name of license or certificate. | `None`. |
+| `certifications[].issuing_organization` | `CertificationEntry` | `*.Certification` | `authority` | Organization issuing credential. | `Unknown Issuer`. |
+| `languages[].name` | `LanguageEntry` | `*.Language` | `name` | Language name. | `None`. |
+| `languages[].proficiency` | `LanguageEntry` | `*.Language` | `proficiency` | Language proficiency level string. | `None`. |
 
 ---
 
-## 4. Provider-Aware Data Quality & Completeness Model
+## 3. DataQuality Completeness Calculation
 
-### 4.1 Categorization Rules
-Let:
-- $C$ = set of sections supported by the active provider (`ProviderCapabilities.supported_sections`).
-- $U$ = set of sections unsupported/unexposed by the provider (`ProviderCapabilities.unsupported_sections`).
-- $A \subseteq C$ = set of supported sections successfully extracted and non-empty.
-- $M = C \setminus A$ = set of supported sections that are empty or null on the target profile.
-- $F$ = set of sections where parser encountered structural schema failures.
+Completeness is calculated deterministically against the supported fields of the direct provider:
 
-### 4.2 Mathematical Formula
-The provider-aware completeness score $S$ is calculated strictly against supported sections $C$:
-$$S = \begin{cases} \frac{|A|}{|C|} & \text{if } |C| > 0 \\ 0.0 & \text{otherwise} \end{cases}$$
+$$\text{completeness\_score} = \frac{|\text{available\_sections}|}{|\text{supported\_sections}|}$$
 
-Where $S \in [0.0, 1.0]$, rounded to 2 decimal places.
-
-### 4.3 Response Contract
-```json
-{
-  "data_quality": {
-    "available_sections": ["full_name", "headline", "location", "experience", "education", "skills"],
-    "missing_sections": ["languages"],
-    "unavailable_sections": ["certifications", "about", "profile_image_url"],
-    "parser_failed_sections": [],
-    "completeness_score": 0.86
-  }
-}
-```
-If schema drift causes a field to fail parsing, it is appended to `parser_failed_sections` and tracked in metrics without fabricating data.
+- **Supported Sections (10 Total)**:
+  `full_name`, `headline`, `location`, `about`, `experience`, `education`, `skills`, `certifications`, `languages`, `profile_image_url`.
+- **Classification Rules**:
+  - `available_sections`: Any section present with valid, non-empty data.
+  - `missing_sections`: Supported sections that are null, empty, or absent from the target profile.
+  - `unavailable_sections`: Sections unsupported by provider capabilities (empty for direct provider).
+  - `parser_failed_sections`: Sections where data was present but malformed.

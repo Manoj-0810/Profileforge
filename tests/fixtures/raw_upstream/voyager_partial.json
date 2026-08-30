@@ -1,0 +1,57 @@
+{
+  "included": [
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "entityUrn": "urn:li:fsd_profile:ACoAAALEXMERCER",
+      "firstName": "Alex",
+      "lastName": "Mercer",
+      "headline": "Backend Engineer | Python & Go",
+      "locationName": "Austin, Texas, United States",
+      "geoCountryName": "United States",
+      "followerCount": 420,
+      "picture": {
+        "rootUrl": "https://media.licdn.com/dms/image/v2/",
+        "artifacts": [
+          {
+            "fileIdentifyingUrlPathSegment": "alex-mercer.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "entityUrn": "urn:li:fsd_profilePosition:(ACoAAALEXMERCER,101)",
+      "title": "Backend Engineer",
+      "companyName": "Nexus Systems",
+      "locationType": "Remote",
+      "dateRange": {
+        "start": { "year": 2022, "month": 3 },
+        "end": null
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+      "entityUrn": "urn:li:fsd_profileEducation:(ACoAAALEXMERCER,201)",
+      "schoolName": "University of Texas at Austin",
+      "degreeName": "Bachelor of Science",
+      "fieldOfStudy": "Computer Science",
+      "dateRange": {
+        "start": { "year": 2018 },
+        "end": { "year": 2022 }
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "Python"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "Go"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+      "name": "English",
+      "proficiency": "Native or bilingual"
+    }
+  ]
+}

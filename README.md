@@ -1,261 +1,312 @@
-# ProfileForge — Production Profile Lookup API
+# ProfileForge — Browserless LinkedIn Profile Lookup API
 
-[![CI Pipeline](https://github.com/profileforge/profileforge/actions/workflows/ci.yml/badge.svg)](https://github.com/profileforge/profileforge)
-[![Coverage](https://img.shields.io/badge/coverage-88%25-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-89%25-brightgreen.svg)]()
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
-> High-reliability, provider-isolated Profile Lookup API engineered for the **Tross Software Engineer Hiring Challenge**.
+> High-reliability, browserless direct HTTP Profile Lookup API engineered for the **Tross Software Engineer Hiring Challenge**.
 
 ---
 
-## 1. Executive Summary
+## 1. What It Is
 
-**ProfileForge** accepts public LinkedIn profile URLs, executes bounded upstream workflow extraction via authorized account credentials, enforces strict SSRF protections and single-flight request coalescing, and delivers normalized JSON data with deterministic, provider-aware completeness scores in sub-10ms for cached lookups.
+**ProfileForge** is an API-first developer service that accepts public LinkedIn profile URLs, communicates **directly with LinkedIn HTTP endpoints without a browser**, and returns rich, normalized, structured JSON data. Browser use is limited to the optional local playground; the LinkedIn acquisition path never launches, controls, or embeds a browser.
 
-### Key Architectural Highlights
-- **Layered Provider Isolation**: Four-stage adapter pipeline (`Client` $\rightarrow$ `Parser` $\rightarrow$ `Resolver` $\rightarrow$ `Normalizer`) encapsulating all third-party quirks.
-- **ProviderCapabilities Abstraction**: Dynamic capability declarations decoupling domain quality assessment from provider feature sets.
-- **Single-Flight Coalescing**: Duplicate concurrent queries for the same profile ID merge into a single in-flight upstream workflow.
-- **Strict Security & SSRF Defenses**: Hostname allowlisting, path normalization, private/loopback IP blocking, constant-time API key verification, and automated secret log redaction.
-- **Deterministic Offline Testing**: 81 comprehensive unit, integration, and contract tests running 100% offline with 88% statement coverage.
+It features:
+- **Zero Browser Dependencies**: Uses direct, reverse-engineered HTTP communication against LinkedIn's internal Rest.li Voyager protocol with session cookie authentication and CSRF token derivation.
+- **Strict Separation of Concerns**: Multi-layered pipeline (`Client` $\rightarrow$ `Parser` $\rightarrow$ `Resolver` $\rightarrow$ `Normalizer`) isolating upstream protocol nuances from public domain schemas.
+- **High Concurrency & Resilience**: Single-flight request coalescing (`asyncio.Future`), semaphore-bounded concurrency, persistent HTTP connection pooling, and in-memory TTL caching.
+- **Enterprise-Grade Security**: Constant-time `X-API-Key` verification, strict SSRF guards blocking private/loopback IPs, automatic sensitive header log redaction, and total decoupling of public API auth from upstream session secrets.
+- **Deterministic Multi-Layered Testing**: 86 automated unit, integration, security, and contract tests pass offline, with one conditional live smoke test and zero external network dependencies in CI.
 
 ---
 
-## 2. API Specification & Endpoints
+## 2. Deployment & Playground
 
-### 2.1 Base URL
-- **Production Endpoint**: `https://DEPLOYED_BASE_URL` *(Configured via Render.com / Cloud Provider)*
-- **Local Dev Server**: `http://localhost:10000`
+The service is deployment-ready for Render or any Docker-compatible host. After
+deployment, verify the host before submitting it and add the real URL here:
 
-### 2.2 Endpoints Overview
+- **Public HTTPS Base URL**: `<YOUR_DEPLOYED_HTTPS_URL>`
+- **Interactive Web UI**: `<YOUR_DEPLOYED_HTTPS_URL>/`
+- **Interactive OpenAPI Documentation**: `<YOUR_DEPLOYED_HTTPS_URL>/docs`
+- **Health Check**: `<YOUR_DEPLOYED_HTTPS_URL>/healthz`
+
+For local development, use `http://localhost:10000`.
+
+---
+
+## 3. Quick Start
+
+### 3.1 Local Development (Python 3.12+)
+
+```bash
+# 1. Clone the public repository and navigate to directory
+git clone <YOUR_PUBLIC_REPOSITORY_URL>
+cd profileforge
+
+# 2. Create virtual environment and install dependencies
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 3. Configure environment
+cp .env.example .env
+
+# 4. Start local Uvicorn development server
+uvicorn app.main:app --host 0.0.0.0 --port 10000 --reload
+```
+
+Visit `http://localhost:10000` in your browser to access the visual developer playground.
+
+### 3.2 Docker
+
+```bash
+# Build minimal production container
+docker build -t profileforge .
+
+# Run container on port 10000
+docker run -p 10000:10000 --env-file .env profileforge
+```
+
+---
+
+## 4. API Specification
+
+### 4.1 Endpoints Overview
 
 | Method | Endpoint | Auth Required | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/v1/profile` | `X-API-Key` | Lookup and normalize LinkedIn profile |
-| `GET` | `/healthz` | No | Liveness probe for load balancers |
-| `GET` | `/readyz` | No | Readiness probe reporting cache & provider health |
-| `GET` | `/docs` | No | Interactive OpenAPI Swagger documentation |
+| `POST` | `/v1/profile` | `X-API-Key` | Lookup and normalize LinkedIn profile data |
+| `GET` | `/healthz` | No | Liveness probe for uptime monitors |
+| `GET` | `/readyz` | No | Readiness probe reporting cache & provider state |
+| `GET` | `/` | No | Developer playground UI |
+| `GET` | `/docs` | No | OpenAPI Swagger interactive documentation |
 
 ---
 
-## 3. Example Request & Response Contract
+## 5. Example Request & Response
 
-### 3.1 Request
+### 5.1 Lookup Request
 
 ```bash
 curl -X POST "http://localhost:10000/v1/profile" \
   -H "Content-Type: application/json" \
   -H "X-API-Key: test-api-key-123" \
-  -d '{"url": "https://www.linkedin.com/in/sarah-jenkins-dev"}'
+  -d '{
+    "url": "https://www.linkedin.com/in/sarah-jenkins-dev",
+    "bypass_cache": false
+  }'
 ```
 
-### 3.2 Success Response (`HTTP 200 OK`)
+### 5.2 Success Response (`HTTP 200 OK`)
+
+The response below is a sanitized, fixture-shaped example for documentation;
+it is not a claim about a live LinkedIn member. The local quick start defaults
+to deterministic `EXTRACTOR_TYPE=mock`; live extraction requires explicitly
+selecting `EXTRACTOR_TYPE=linkedin` and configuring both server-side session
+cookies.
 
 ```json
 {
   "profile": {
     "full_name": "Sarah Jenkins",
-    "headline": "Staff Distributed Systems Engineer @ CloudScale",
-    "location": "Seattle, Washington, United States",
+    "headline": "Staff Software Engineer | Distributed Systems & Cloud Architecture",
+    "location": "San Francisco, California, United States",
     "country_code": "US",
-    "about": "Passionate backend engineer specializing in high-throughput streaming systems.",
-    "profile_image_url": "https://media.licdn.com/dms/image/v2/example.jpg",
+    "about": "Staff Engineer with 10+ years specializing in high-throughput distributed systems, microservices architecture, and cloud platforms.",
+    "profile_image_url": "https://media.licdn.com/dms/image/v2/sarah-jenkins-800.jpg",
     "profile_url": "https://www.linkedin.com/in/sarah-jenkins-dev",
     "canonical_url": "https://www.linkedin.com/in/sarah-jenkins-dev",
-    "urn": "urn:li:member:849201948",
-    "current_position": "Staff Distributed Systems Engineer",
-    "current_company": "CloudScale Inc.",
-    "followers_count": 4510,
+    "urn": "urn:li:fsd_profile:ACoAAASARAHJENKINS",
+    "current_position": "Staff Software Engineer",
+    "current_company": "Stripe",
+    "followers_count": 4850,
     "experience": [
       {
-        "title": "Staff Distributed Systems Engineer",
-        "company": "CloudScale Inc.",
-        "company_url": "https://www.linkedin.com/company/92847192",
-        "employment_type": "fullTime",
-        "location_type": "hybrid",
-        "description": "Architecting multi-region streaming pipelines handling 5M events/sec.",
-        "duration_months": 28,
-        "start_date": "2024-01-01T00:00:00Z",
-        "end_date": null,
-        "location": "Seattle, WA"
+        "title": "Staff Software Engineer",
+        "company": "Stripe",
+        "company_url": "https://www.linkedin.com/company/stripe",
+        "employment_type": "Full-time",
+        "location_type": "Hybrid",
+        "location": "San Francisco, CA",
+        "description": "Leading core payments ingestion pipeline architecture handling 50k+ QPS with 99.999% availability.",
+        "duration_months": null,
+        "start_date": "2021-04",
+        "end_date": null
       }
     ],
     "education": [
       {
-        "school": "University of Washington",
-        "school_url": "https://www.linkedin.com/company/uw1861",
-        "details": "Master of Science in Computer Science & Engineering",
+        "school": "Stanford University",
+        "school_url": null,
+        "details": null,
         "degree": "Master of Science",
-        "field_of_study": "Computer Science & Engineering",
-        "start_date": "2018-09-01T00:00:00Z",
-        "end_date": "2020-06-15T00:00:00Z"
+        "field_of_study": "Computer Science",
+        "start_date": "2016",
+        "end_date": "2018"
       }
     ],
-    "skills": ["Distributed Systems", "Python", "Go", "Kubernetes", "FastAPI"],
-    "certifications": [],
+    "skills": ["Distributed Systems", "Python", "FastAPI", "Go", "Kubernetes"],
+    "certifications": [
+      {
+        "name": "AWS Certified Solutions Architect - Professional",
+        "issuing_organization": "Amazon Web Services",
+        "issue_date": "2022-05",
+        "expiration_date": "2025-05",
+        "credential_id": "AWS-PSA-99482",
+        "credential_url": null
+      }
+    ],
     "languages": [
       { "name": "English", "proficiency": "Native or bilingual" },
-      { "name": "German", "proficiency": "Professional working" }
+      { "name": "French", "proficiency": "Professional working" }
     ]
   },
-  "fetched_at": "2026-08-27T13:20:00Z",
+  "fetched_at": "2026-08-29T11:25:00.000000Z",
   "cache_hit": false,
-  "source": "linkedapi",
-  "request_id": "9f24b2a8-3482-4f3b-81ae-2819a048d821",
+  "source": "linkedin_direct",
+  "request_id": "req-8924b17f-1d4e-4f76-8023-e18721245012",
   "data_quality": {
-    "available_sections": ["full_name", "headline", "location", "experience", "education", "skills", "languages", "about", "profile_image_url"],
+    "available_sections": [
+      "full_name",
+      "headline",
+      "location",
+      "about",
+      "experience",
+      "education",
+      "skills",
+      "certifications",
+      "languages",
+      "profile_image_url"
+    ],
     "missing_sections": [],
-    "unavailable_sections": ["certifications"],
+    "unavailable_sections": [],
     "parser_failed_sections": [],
     "completeness_score": 1.0
   }
 }
 ```
 
-### 3.3 Standardized Error Response (`HTTP 4xx / 5xx`)
+---
 
-```json
-{
-  "error": {
-    "code": "UPSTREAM_TIMEOUT",
-    "message": "Upstream profile lookup timed out after 120.0s.",
-    "request_id": "9f24b2a8-3482-4f3b-81ae-2819a048d821"
-  }
-}
+## 6. Direct LinkedIn Integration Architecture
+
+ProfileForge uses a reverse-engineered HTTP client to interact directly with LinkedIn Voyager API endpoints:
+
+```
+[ Client Request ]
+       │
+       ▼
+[ URL Validator & SSRF Guard ]
+       │
+       ▼
+[ ProfileService (Cache Check & Single-Flight Coalesce) ]
+       │
+       ▼
+┌────────────────────────────────────────────────────────────┐
+│                Direct LinkedIn Provider                    │
+│                                                            │
+│  LinkedInRequestBuilder                                    │
+│       ↓ (Constructs Voyager GET + CSRF Header + Session)   │
+│  LinkedInClient (Direct HTTP over httpx.AsyncClient)       │
+│       ↓ (Hits https://www.linkedin.com/voyager/api/...)    │
+│  LinkedInParser (Categorizes entities from included[])     │
+│       ↓ (Profiles, Positions, Educations, Skills, etc.)    │
+│  LinkedInResolver (Resolves URN indices & Degree regex)    │
+│       ↓                                                    │
+│  LinkedInNormalizer (Produces ProfileData & DataQuality)   │
+└────────────────────────────────────────────────────────────┘
+       │
+       ▼
+[ Normalized ProfileData Returned ]
 ```
 
----
-
-## 4. Architecture & System Flow
-
-```mermaid
-graph TD
-    Client["API Consumer"]
-    
-    subgraph FastAPI HTTP Application Layer
-        ReqID["Request ID Middleware"]
-        LoggingMW["Structured Logging & Header Redaction"]
-        AuthMW["API Key Authentication (X-API-Key)"]
-        RateLimitMW["Sliding Window Rate Limiter"]
-    end
-    
-    subgraph Core Domain & Security Layer
-        URLVal["URL Validator & SSRF Guard"]
-        ProfileSvc["ProfileService (SingleFlight)"]
-        Cache["InMemoryCache (Key: Canonical Profile ID)"]
-        Sem["Concurrency Semaphore (MAX_CONCURRENT_EXTRACTIONS=2)"]
-    end
-    
-    subgraph Provider Adapter Layer (app/providers/linkedapi)
-        ExtIF["ProfileExtractor Protocol"]
-        LinkedInExt["LinkedInExtractor"]
-        ClientHTTP["LinkedAPIClient (HTTP Submit + Poll + Backoff)"]
-        Parser["LinkedAPIParser (Schema Validation)"]
-        Resolver["LinkedAPIResolver (URN & Entity Index)"]
-        Normalizer["LinkedAPINormalizer (DataQuality & Domain Map)"]
-    end
-    
-    subgraph Upstream Service
-        RemoteAPI["LinkedAPI Remote API (api.linkedapi.io)"]
-    end
-
-    Client -->|HTTPS Request| ReqID
-    ReqID --> LoggingMW
-    LoggingMW --> AuthMW
-    AuthMW --> RateLimitMW
-    RateLimitMW --> URLVal
-    URLVal --> ProfileSvc
-    ProfileSvc --> Cache
-    Cache -->|Cache HIT <10ms| Client
-    Cache -->|Cache MISS| Sem
-    Sem --> ExtIF
-    ExtIF --> LinkedInExt
-    LinkedInExt --> ClientHTTP
-    ClientHTTP -->|POST /workflows & GET poll| RemoteAPI
-    ClientHTTP --> Parser
-    Parser --> Resolver
-    Resolver --> Normalizer
-    Normalizer --> ProfileSvc
-    ProfileSvc --> Cache
-```
+### Protocol Details:
+- **Primary Endpoint**: `GET https://www.linkedin.com/voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity={slug}&decorationId=com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93`
+- **Headers**:
+  - `csrf-token`: Derived from active `JSESSIONID` session cookie (quotes stripped)
+  - `x-restli-protocol-version: 2.0.0`
+  - `accept: application/vnd.linkedin.normalized+json+2.1`
+  - `x-li-lang: en_US`
+  - `User-Agent`: Modern browser user-agent
+- **Cookies**: `li_at` and `JSESSIONID` from authorized session.
 
 ---
 
-## 5. Extraction Approach & Provider Decision
+## 7. Error Handling & Taxonomy
 
-### 5.1 Evaluated Approaches
-1. **Official LinkedIn API**: Restricted to enterprise partner contracts (Talent Solutions / Marketing); does not allow arbitrary developer profile lookups.
-2. **Voyager API with Session Cookies (`li_at`)**: Highly brittle, violates LinkedIn ToS, triggers automated anti-bot bans (Spectroscopy).
-3. **Legacy Scraping Proxies (Proxycurl)**: Defunct post-2025 legal actions.
-4. **LinkedAPI REST Workflow API**: Account-based automation using cloud-browser simulation on behalf of the developer's authorized LinkedIn account. **Selected**.
+All errors return uniform JSON envelopes with machine-readable error codes:
 
-### 5.2 Provider Isolation Architecture
-The core domain model never references LinkedAPI structures. All communication is encapsulated in `app/providers/linkedapi/`:
-- `client.py`: Submits workflows via `POST /workflows`, polls `GET /workflows/{id}` with exponential backoff and jitter, short-circuits on terminal failures (`linkedinAccountSignedOut`, `outsideWorkingHours`), and cancels workflows on timeout.
-- `parser.py`: Performs structural validation, detecting schema drift without discarding uncorrupted fields.
-- `resolver.py`: Resolves URN entities, normalizes institution names, and parses degrees and majors via regex pattern matching.
-- `normalizer.py`: Transforms intermediate records into `ProfileData` and evaluates `DataQuality` against declared `ProviderCapabilities`.
-
----
-
-## 6. Security & Operational Reliability
-
-| Guard | Implementation | Impact |
+| Error Code | HTTP Status | Description |
 | :--- | :--- | :--- |
-| **SSRF Defense** | `app/services/url_utils.py` | Blocks loopback, private IPv4/IPv6 ranges, and non-LinkedIn hostnames |
-| **Single-Flight Coalescing** | `app/services/profile_service.py` | Coalesces concurrent identical requests into one in-flight upstream job |
-| **Bounded Concurrency** | `asyncio.Semaphore` | Limits simultaneous upstream extractions to configurable quota (default: 2) |
-| **Sliding Window Limiter** | `app/rate_limit.py` | Protects server from abuse; returns `429` with `Retry-After` headers |
-| **Log Sanitization** | `app/logging_config.py` | Automatically redacts `x-api-key`, `linked-api-token`, and authorization headers |
-| **Non-Root Container** | `Dockerfile` | Runs as unprivileged `appuser` on minimal `python:3.12-slim` image |
+| `INVALID_PROFILE_URL` | 400 | Malformed URL, unsupported hostname, or invalid profile path |
+| `UNAUTHORIZED` | 401 | Missing or invalid `X-API-Key` header |
+| `RATE_LIMIT_EXCEEDED` | 429 | Client exceeded sliding window quota (returns `Retry-After`) |
+| `PROFILE_NOT_FOUND` | 404 | Target member slug does not exist on LinkedIn |
+| `UPSTREAM_AUTH_FAILED` | 502 | Backend LinkedIn session expired (`li_at` invalid) |
+| `UPSTREAM_RATE_LIMITED`| 502 | LinkedIn returned HTTP 999 or 429 rate limit |
+| `UPSTREAM_CHALLENGE_DETECTED` | 502 | LinkedIn requested authwall or checkpoint challenge |
+| `UPSTREAM_TIMEOUT` | 504 | Upstream request exceeded configured timeout |
+| `UPSTREAM_SERVER_ERROR`| 502 | LinkedIn returned 5xx server failure |
+| `UPSTREAM_SCHEMA_CHANGED` | 502 | Upstream JSON structure altered or unparseable |
 
 ---
 
-## 7. Testing & Quality Gates
+## 8. Caching & Single-Flight Coalescing
 
-The test suite runs 100% offline in CI and covers unit, integration, and provider contract tests.
+- **Cache Key**: Provider plus canonical profile slug (e.g. `linkedin_direct:sarah-jenkins-dev`), ensuring URL variations (`HTTP`, `HTTPS`, trailing slashes, tracking query parameters) resolve to the identical cache entry without cross-provider contamination.
+- **TTL**: Configurable in seconds (`CACHE_TTL_SECONDS=3600`).
+- **Single-Flight Coalescing**: If multiple concurrent requests arrive for an uncached profile, only a single upstream HTTP request is dispatched; subsequent callers await the pending `asyncio.Future`.
+- **Cache Bypass**: Send `"bypass_cache": true` in request JSON to force a live fetch.
+
+---
+
+## 9. Security & Trust Boundaries
+
+- **Separation of Trust Domains**: Client API keys (`X-API-Key`) are strictly separated from upstream LinkedIn session secrets (`LINKEDIN_LI_AT`). No public endpoints allow modifying credentials or writing `.env`.
+- **SSRF Defense**: Strict regex matching and `ipaddress` network verification blocking all private, loopback, link-local (cloud metadata `169.254.169.254`), and IPv6 reserved ranges.
+- **Log Sanitization**: Sensitive headers (`x-api-key`, `cookie`, `set-cookie`, `csrf-token`, `li_at`, `jsessionid`) are automatically redacted from logs.
+- **Non-Root Container**: Dockerfile executes as unprivileged `appuser`.
+
+---
+
+## 10. Automated Testing & Verification
+
+Run the complete test suite with coverage:
 
 ```bash
-# Run full offline test suite with coverage report
-pytest tests/ -v --cov=app --cov-report=term-missing
+# Run Ruff linting & formatting checks
+ruff check app/ tests/
+ruff format --check app/ tests/
 
-# Run static type checking
+# Run Mypy static type analysis
 mypy app/
 
-# Run linter and code formatter
-ruff check app tests
-ruff format --check app tests
+# Run Pytest offline test suite with coverage enforcement
+python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=85
 ```
 
-### Test Suite Structure
-- `tests/unit/`: Tests models, URL parsing, cache TTL, rate limiting, auth, client state machine, single-flight coalescer, parser, resolver, and normalizer.
-- `tests/contract/`: Tests 13 raw upstream fixtures against parser/normalizer pipeline and asserts schema drift behavior.
-- `tests/integration/`: Tests end-to-end FastAPI HTTP pipeline, cache-hit equivalence across URL variations, diagnostics, and error envelopes.
-- `tests/e2e/`: Conditional live smoke test executed only when real upstream tokens are configured.
+### Test Suite Structure:
+- `tests/unit/`: Tests for models, URL validator, cache, rate limiter, direct HTTP client, parser, resolver, and normalizer.
+- `tests/integration/`: End-to-end API pipeline, cache hit/miss/bypass, diagnostics, error responses.
+- `tests/contract/`: Schema stability and drift tests asserting deterministic transformation of raw Voyager JSON fixtures.
+- `tests/security/`: Dynamic router introspection (`test_endpoint_auth.py`) verifying all non-health routes require auth and leak zero secrets.
+- `tests/e2e/`: Conditional live smoke test.
 
 ---
 
-## 8. Deployment Guide (Render.com)
+## 11. Known Limitations
 
-### 8.1 Docker Deployment
-The repository includes a production-ready `Dockerfile` and `render.yaml` blueprint.
-
-1. Create a new Web Service on [Render.com](https://render.com).
-2. Connect your GitHub repository.
-3. Select **Docker** environment.
-4. Configure environment variables:
-   - `PORT`: `10000`
-   - `ENVIRONMENT`: `production`
-   - `EXTRACTOR_TYPE`: `linkedapi` (or `mock`)
-   - `API_KEYS`: `your-secure-client-api-key`
-   - `LINKEDAPI_TOKEN`: `your-linkedapi-developer-token`
-   - `LINKEDAPI_IDENTIFICATION_TOKEN`: `your-linkedapi-session-token`
+1. **Session Longevity**: Direct HTTP integration requires active `li_at` and `JSESSIONID` cookies. Cookies expire periodically (typically 30–90 days) and must be updated in server environment variables.
+2. **Anti-Bot Challenges**: If LinkedIn flags an IP or session with a CAPTCHA or checkpoint challenge, ProfileForge detects and classifies it as `UPSTREAM_CHALLENGE_DETECTED` (HTTP 502) without attempting illegal bypasses.
+3. **In-Memory Cache**: The default cache implementation is in-memory; entries clear on server restart.
 
 ---
 
-## 9. Known Limitations & Transparency
+## 12. Engineering Decisions (ADR Summary)
 
-1. **Certifications Availability**: Documented finding: Certifications are not exposed in LinkedAPI's primary standard action set (`st.retrieve*`). Handled gracefully in domain models as an empty list and tracked in `unavailable_sections`.
-2. **Upstream Latency**: Natural cloud-browser emulation takes 30s–60s per uncached profile fetch. Mitigated by in-memory caching and single-flight request coalescing.
-3. **Sequential Execution per Account**: LinkedAPI queues workflows sequentially for a given LinkedIn account. Bounded by the application concurrency semaphore (`MAX_CONCURRENT_EXTRACTIONS=2`).
+- **D01**: Direct HTTP Voyager API instead of browser automation to eliminate browser launch latency, reduce container footprint, and meet the core challenge requirement.
+- **D02**: FastAPI + Pydantic v2 for high async throughput, strict type safety, and automatic OpenAPI schema generation.
+- **D03**: Single-Flight request coalescing to eliminate thundering herd problems on concurrent cache misses.
+- **D04**: Dynamic DataQuality scoring calculated against supported provider sections.
+- **D05**: Total elimination of public runtime credential modification endpoints for security hardening.

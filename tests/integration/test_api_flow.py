@@ -25,10 +25,7 @@ async def test_successful_profile_lookup():
 
         assert "profile" in data
         assert data["profile"]["full_name"] == "Sarah Jenkins"
-        assert (
-            data["profile"]["headline"]
-            == "Staff Distributed Systems Engineer @ CloudScale"
-        )
+        assert "Staff Software Engineer" in data["profile"]["headline"]
         assert len(data["profile"]["experience"]) == 2
         assert len(data["profile"]["education"]) == 2
         assert "Python" in data["profile"]["skills"]
@@ -45,6 +42,19 @@ async def test_successful_profile_lookup():
         data2 = resp2.json()
         assert data2["cache_hit"] is True
         assert data2["profile"]["full_name"] == "Sarah Jenkins"
+
+        # Third request: Cache BYPASS
+        resp3 = await client.post(
+            "/v1/profile",
+            json={
+                "url": "https://www.linkedin.com/in/sarah-jenkins-dev",
+                "bypass_cache": True,
+            },
+            headers=AUTH_HEADERS,
+        )
+        assert resp3.status_code == 200
+        data3 = resp3.json()
+        assert data3["cache_hit"] is False
 
 
 @pytest.mark.asyncio

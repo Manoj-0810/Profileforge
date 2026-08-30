@@ -1,0 +1,8 @@
+{
+  "included": [
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.UnrecognizedSchemaType",
+      "someUnknownField": 12345
+    }
+  ]
+}

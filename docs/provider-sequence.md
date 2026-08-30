@@ -1,86 +1,96 @@
-# LinkedAPI Workflow Lifecycle, Retry Policy & Request Coalescing
+# ProfileForge — Provider Execution Sequence
 
-## 1. Overview
+## 1. Direct Extraction Flow (Happy Path)
 
-This document details:
-1. The asynchronous workflow execution sequence.
-2. The deterministic **Retry & Backoff Policy** across transient vs terminal failure states.
-3. The **Single-Flight Duplicate Request Protection** (request coalescing) mechanism.
-
----
-
-## 2. Sequence Diagram with Request Coalescing
+The following Mermaid sequence diagram illustrates the lifecycle of a profile lookup request through the direct LinkedIn HTTP architecture:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C1 as Client 1 (Request for "williamhgates")
-    participant C2 as Client 2 (Request for "williamhgates")
-    participant API as FastAPI Router
-    participant Svc as ProfileService (SingleFlight)
+    actor Client
+    participant FastAPI as FastAPI (/v1/profile)
+    participant Auth as Auth & Rate Limit
+    participant URL as URL Validator
+    participant Svc as ProfileService
     participant Cache as InMemoryCache
-    participant Sem as Concurrency Semaphore
-    participant Adapter as LinkedAPI Provider Adapter
-    participant Remote as api.linkedapi.io
+    participant Ext as DirectLinkedInExtractor
+    participant Req as LinkedInRequestBuilder
+    participant Http as LinkedInClient (HTTP)
+    participant LI as LinkedIn Voyager API
+    participant Parser as LinkedInParser
+    participant Res as LinkedInResolver
+    participant Norm as LinkedInNormalizer
 
-    C1->>API: POST /v1/profile { "url": ".../williamhgates" }
-    C2->>API: POST /v1/profile { "url": ".../williamhgates" }
-    API->>Svc: lookup("williamhgates") (C1)
-    API->>Svc: lookup("williamhgates") (C2)
-    
-    Svc->>Cache: get("williamhgates") -> MISS
-    Note over Svc: C1 registers in-flight Future for "williamhgates"
-    Note over Svc: C2 detects existing in-flight Future and attaches (awaits same Future)
-    
-    Svc->>Sem: acquire() (C1 only)
-    Sem->>Adapter: fetch("williamhgates")
-    
-    Adapter->>Remote: POST /workflows
-    Remote-->>Adapter: { workflowId: "wf-123", workflowStatus: "pending" }
-    
-    loop Polling (every 3s with deadline)
-        Adapter->>Remote: GET /workflows/wf-123
-        Remote-->>Adapter: { workflowStatus: "running" / "completed" }
+    Client->>FastAPI: POST /v1/profile {url, bypass_cache}
+    FastAPI->>Auth: Validate X-API-Key & Sliding Window Quota
+    Auth-->>FastAPI: Key Validated
+    FastAPI->>URL: Validate URL & Extract Slug
+    URL-->>FastAPI: Canonical URL + Member Slug
+    FastAPI->>Svc: lookup(canonical_url, slug)
+    Svc->>Cache: get(provider + canonical slug)
+
+    alt Cache HIT (bypass_cache == False)
+        Cache-->>Svc: ProfileData
+        Svc-->>FastAPI: ProfileLookupResponse (cache_hit=True)
+    else Cache MISS or bypass_cache == True
+        Svc->>Ext: fetch(canonical_url)
+        Ext->>Req: build_profile_request(slug)
+        Req-->>Ext: URL, Headers (csrf-token, RestLi), Cookies (li_at, JSESSIONID)
+        Ext->>Http: execute_request(req)
+        Http->>LI: GET /voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity={slug}&decorationId=...
+        LI-->>Http: 200 OK + Normalized JSON (data + included[])
+        Http-->>Ext: Raw JSON Payload
+        Ext->>Parser: parse(raw_json)
+        Parser-->>Ext: ParsedEntities (Profile, Positions, Educations, Skills, etc.)
+        Ext->>Res: resolve(parsed_entities)
+        Res-->>Ext: ResolvedProfileGraph
+        Ext->>Norm: normalize(resolved_graph, canonical_url)
+        Norm-->>Ext: ProfileData + DataQuality
+        Ext-->>Svc: ProfileData
+        Svc->>Cache: set(provider + canonical slug, ProfileData, ttl)
+        Svc-->>FastAPI: ProfileLookupResponse (cache_hit=False)
     end
-    
-    Adapter->>Adapter: Parse -> Resolve -> Normalize
-    Adapter-->>Sem: ProfileData
-    Sem-->>Svc: ProfileData
-    
-    Note over Svc: Svc stores in Cache("williamhgates")
-    Note over Svc: Svc resolves in-flight Future with ProfileData
-    
-    Svc-->>API: ProfileLookupResponse (for C1)
-    Svc-->>API: ProfileLookupResponse (for C2, cache_hit=True/coalesced)
-    API-->>C1: HTTP 200 JSON Response
-    API-->>C2: HTTP 200 JSON Response
+
+    FastAPI-->>Client: 200 OK + JSON Payload + X-Request-ID
 ```
 
 ---
 
-## 3. Explicit Retry & Backoff Policy
+## 2. Upstream Error & Challenge Handling Flow
 
-Not all errors are equal. Retrying non-transient errors (like invalid authentication or explicit rate limits) exacerbates upstream penalties and degrades reliability.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Ext as DirectLinkedInExtractor
+    participant Http as LinkedInClient (HTTP)
+    participant LI as LinkedIn Voyager API
+    participant Svc as ProfileService
 
-### 3.1 Classification Matrix
+    Ext->>Http: execute_request(slug)
+    Http->>LI: GET /voyager/api/identity/dash/profiles...
 
-| Failure Category | HTTP Codes / Errors | Retryable? | Max Attempts | Backoff Strategy | Resulting App ErrorCode |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Transient Network / DNS** | `ConnectTimeout`, `ReadTimeout`, `ConnectError` | **Yes** | 3 | Exponential with jitter ($2^n \times 0.5s \pm 0.1s$) | `UPSTREAM_TIMEOUT` / `UPSTREAM_SERVER_ERROR` |
-| **Upstream Transient 5xx** | `HTTP 502`, `HTTP 503`, `HTTP 504` | **Yes** | 2 | Exponential ($1s, 2s$) | `UPSTREAM_SERVER_ERROR` |
-| **Authentication & Config** | `invalidLinkedApiToken`, `subscriptionRequired`, `401`, `403` | **No** | 1 (Fail fast) | None | `AUTH_CONFIGURATION_ERROR` |
-| **Rate Limit Exceeded** | `tooManyRequests`, `limitExceeded`, `429` | **No** | 1 (Fail fast) | Respect `Retry-After` if present | `UPSTREAM_RATE_LIMITED` |
-| **Terminal Account State** | `linkedinAccountSignedOut`, `outsideWorkingHours` | **No** | 1 (Fail fast) | None | `UPSTREAM_AUTH_FAILED` / `UPSTREAM_CHALLENGE_DETECTED` |
-| **Target Profile Missing** | `personNotFound`, `404` | **No** | 1 (Fail fast) | None | `PROFILE_NOT_FOUND` |
-| **Schema Validation Drift** | Parser validation exception | **No** | 1 (Fail fast) | None | `UPSTREAM_SCHEMA_CHANGED` |
-
----
-
-## 4. Single-Flight Duplicate Request Protection
-
-To prevent "cache stampedes" or redundant slow extractions when multiple consumers query the same profile simultaneously:
-1. `ProfileService` maintains an internal dictionary `_in_flight: dict[str, asyncio.Future[ProfileData]]`.
-2. When a request for canonical profile ID $K$ arrives:
-   - If $K$ is in `_in_flight`, the caller simply awaits the existing future.
-   - If $K$ is not in `_in_flight`, a new Future is registered, the single upstream extraction workflow executes, populates the cache, resolves the future for all waiters, and removes $K$ from `_in_flight` in a `finally` block.
-3. If an extraction fails, the exception propagates to all concurrent waiters cleanly.
+    alt 401 Unauthorized / Session Expired
+        LI-->>Http: 401 Unauthorized
+        Http-->>Ext: raise UpstreamAuthError
+        Ext-->>Svc: ProfileForgeError(UPSTREAM_AUTH_FAILED, 502)
+    else 404 Member Not Found
+        LI-->>Http: 404 Not Found
+        Http-->>Ext: raise ProfileNotFoundError
+        Ext-->>Svc: ProfileForgeError(PROFILE_NOT_FOUND, 404)
+    else 429 / HTTP 999 Bot Challenge
+        LI-->>Http: 999 Request Denied / 429 Too Many Requests
+        Http-->>Ext: raise UpstreamRateLimitError
+        Ext-->>Svc: ProfileForgeError(UPSTREAM_RATE_LIMITED, 502)
+    else 302 Redirect to /authwall or /checkpoint
+        LI-->>Http: 302 Redirect to /authwall
+        Http-->>Ext: raise UpstreamChallengeError
+        Ext-->>Svc: ProfileForgeError(UPSTREAM_CHALLENGE_DETECTED, 502)
+    else 500 / 502 / 503 Upstream Transient Error
+        LI-->>Http: 503 Service Unavailable
+        Note over Http: Retry with exponential backoff (up to 2 retries)
+        Http->>LI: Retry attempt 1
+        LI-->>Http: 503 Service Unavailable
+        Http-->>Ext: raise UpstreamServerError
+        Ext-->>Svc: ProfileForgeError(UPSTREAM_SERVER_ERROR, 502)
+    end
+```

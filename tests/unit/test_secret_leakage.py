@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 FORBIDDEN_PATTERNS = [
     re.compile(r"password\s*=\s*['\"][^\'\"]+['\"]", re.IGNORECASE),
@@ -17,7 +17,9 @@ FORBIDDEN_PATTERNS = [
 def test_repository_secret_audit():
     root_dir = Path(__file__).parent.parent.parent
     tracked_files = (
-        subprocess.check_output(["git", "ls-files"], cwd=root_dir, text=True).strip().splitlines()
+        subprocess.check_output(["git", "ls-files"], cwd=root_dir, text=True)
+        .strip()
+        .splitlines()
     )
 
     violations = []
@@ -36,4 +38,6 @@ def test_repository_secret_audit():
                     if pattern.search(line):
                         violations.append(f"{rel_path}:{line_no} -> {line.strip()}")
 
-    assert not violations, f"Potential secret leakage detected in repository files: {violations}"
+    assert not violations, (
+        f"Potential secret leakage detected in repository files: {violations}"
+    )

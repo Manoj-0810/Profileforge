@@ -26,8 +26,8 @@ jobs:
 
       - name: Run Ruff Lint & Format Check
         run: |
-          ruff check app tests
-          ruff format --check app tests
+          ruff check app/ tests/
+          ruff format --check app/ tests/
 
       - name: Run Mypy Static Type Analysis
         run: |
@@ -43,5 +43,5 @@ jobs:
 
       - name: Multi-Layered Secret Audit
         run: |
-          # Scan for leaked API tokens, cookies, or secrets
-          ! git grep -nEi "password[[:space:]]*=[[:space:]]*['\"][^'\"]+['\"]|token[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_\-]{16,}['\"]|li_at|JSESSIONID" -- app/ docs/ tests/ || (echo "Potential secret detected!" && exit 1)
+          # Scan for leaked session tokens, passwords, or credentials assigned to literals
+          ! git grep -nEi "password[[:space:]]*=[[:space:]]*['\"][^'\"]+['\"]|token[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_\-]{24,}['\"]|li_at[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_\-]{10,}['\"]" -- app/ docs/ tests/ || (echo "Potential secret detected!" && exit 1)

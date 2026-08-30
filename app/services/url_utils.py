@@ -16,6 +16,7 @@ ALLOWED_HOSTS = {
 
 # Regex matching valid LinkedIn profile path: /in/<slug>
 PROFILE_PATH_PATTERN = re.compile(r"^/in/([a-zA-Z0-9_\-\%]+)/?$", re.IGNORECASE)
+CANONICAL_SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
 
 BLOCKED_IP_NETWORKS = [
     ipaddress.ip_network("127.0.0.0/8"),
@@ -129,5 +130,20 @@ def validate_and_canonicalize_url(raw_url: str) -> tuple[str, str]:
             status_code=400,
         )
 
+    # Revalidate after decoding so encoded separators cannot alter the
+    # canonical path or be interpolated into the upstream query string.
+    if not CANONICAL_SLUG_PATTERN.fullmatch(slug):
+        raise ProfileForgeError(
+            ErrorCode.INVALID_PROFILE_URL,
+            "Profile identifier contains unsupported characters.",
+            status_code=400,
+        )
+
     canonical_url = f"https://www.linkedin.com/in/{slug}"
     return canonical_url, slug
+
+
+def extract_slug_from_url(url: str) -> str:
+    """Convenience helper extracting clean profile slug from a LinkedIn URL."""
+    _, slug = validate_and_canonicalize_url(url)
+    return slug

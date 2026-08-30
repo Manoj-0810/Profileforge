@@ -1,0 +1,21 @@
+{
+  "included": [
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "entityUrn": "urn:li:fsd_profile:ACoAAAMAYALIN",
+      "firstName": "Maya",
+      "lastName": "Lin",
+      "headline": "AI Research Scientist",
+      "locationName": "Seattle, Washington, United States",
+      "followerCount": 1250
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "PyTorch"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "name": "Deep Learning"
+    }
+  ]
+}

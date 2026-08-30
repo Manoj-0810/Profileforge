@@ -58,6 +58,8 @@ def test_valid_linkedin_urls(
         "https://www.linkedin.com/feed/",
         "https://www.linkedin.com/in/",
         "https://www.linkedin.com/in/a",  # too short
+        "https://www.linkedin.com/in/jane%2Fdoe",  # encoded path separator
+        "https://www.linkedin.com/in/jane%26role",  # encoded query delimiter
     ],
 )
 def test_invalid_linkedin_urls(invalid_url: str):

@@ -1,7 +1,7 @@
 {
   "success": false,
   "error": {
-    "type": "invalidLinkedApiToken",
-    "message": "The provided 'linked-api-token' is invalid or expired."
+    "type": "upstreamAuthFailed",
+    "message": "The LinkedIn session cookie is invalid or expired."
   }
 }

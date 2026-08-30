@@ -6,13 +6,20 @@ services:
     ports:
       - "10000:10000"
     environment:
-      - PORT=10000
-      - ENVIRONMENT=development
-      - EXTRACTOR_TYPE=mock
-      - API_KEYS=test-api-key-123,forge-secret-dev
-      - LINKEDAPI_TOKEN=${LINKEDAPI_TOKEN:-}
-      - LINKEDAPI_IDENTIFICATION_TOKEN=${LINKEDAPI_IDENTIFICATION_TOKEN:-}
-      - MAX_CONCURRENT_EXTRACTIONS=2
-      - CACHE_TTL_SECONDS=3600
-      - UPSTREAM_TIMEOUT_SECONDS=120
+      - PORT=${PORT:-10000}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - EXTRACTOR_TYPE=${EXTRACTOR_TYPE:-mock}
+      - API_KEYS=${API_KEYS:-test-api-key-123,forge-secret-dev}
+      # Switch EXTRACTOR_TYPE to linkedin and provide these only through a
+      # local .env file or a secrets manager. Never commit session values.
+      - LINKEDIN_LI_AT=${LINKEDIN_LI_AT:-}
+      - LINKEDIN_JSESSIONID=${LINKEDIN_JSESSIONID:-}
+      - LINKEDIN_USER_AGENT=${LINKEDIN_USER_AGENT:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36}
+      - LINKEDIN_PROXY_URL=${LINKEDIN_PROXY_URL:-}
+      - MAX_CONCURRENT_EXTRACTIONS=${MAX_CONCURRENT_EXTRACTIONS:-2}
+      - CACHE_TTL_SECONDS=${CACHE_TTL_SECONDS:-3600}
+      - UPSTREAM_TIMEOUT_SECONDS=${UPSTREAM_TIMEOUT_SECONDS:-30}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-60}
+      - RATE_LIMIT_WINDOW_SECONDS=${RATE_LIMIT_WINDOW_SECONDS:-60}
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
     restart: unless-stopped

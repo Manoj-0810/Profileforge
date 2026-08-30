@@ -13,7 +13,12 @@ from app.errors import ErrorCode, ProfileForgeError
 
 logger = structlog.get_logger(__name__)
 
-api_key_header_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_header_scheme = APIKeyHeader(
+    name="X-API-Key",
+    scheme_name="ProfileForgeApiKey",
+    description="ProfileForge Client API Key. Pass in the 'X-API-Key' header.",
+    auto_error=False,
+)
 
 
 async def verify_api_key(
@@ -38,9 +43,7 @@ async def verify_api_key(
             status_code=401,
         )
 
-    valid_keys = list(settings.API_KEYS)
-    if settings.LINKEDAPI_TOKEN:
-        valid_keys.append(settings.LINKEDAPI_TOKEN)
+    valid_keys = [key for key in settings.API_KEYS if key.strip()]
 
     is_valid = any(secrets.compare_digest(x_api_key, key) for key in valid_keys)
 

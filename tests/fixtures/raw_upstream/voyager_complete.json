@@ -1,0 +1,132 @@
+{
+  "data": {
+    "*elements": [
+      "urn:li:fsd_profile:ACoAAASARAHJENKINS"
+    ]
+  },
+  "included": [
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Profile",
+      "entityUrn": "urn:li:fsd_profile:ACoAAASARAHJENKINS",
+      "objectUrn": "urn:li:member:12345678",
+      "firstName": "Sarah",
+      "lastName": "Jenkins",
+      "headline": "Staff Software Engineer | Distributed Systems & Cloud Architecture",
+      "locationName": "San Francisco, California, United States",
+      "geoCountryName": "United States",
+      "summary": "Staff Engineer with 10+ years specializing in high-throughput distributed systems, microservices architecture, and cloud platforms.",
+      "followerCount": 4850,
+      "picture": {
+        "rootUrl": "https://media.licdn.com/dms/image/v2/",
+        "artifacts": [
+          {
+            "width": 200,
+            "height": 200,
+            "fileIdentifyingUrlPathSegment": "sarah-jenkins-200.jpg"
+          },
+          {
+            "width": 800,
+            "height": 800,
+            "fileIdentifyingUrlPathSegment": "sarah-jenkins-800.jpg"
+          }
+        ]
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "entityUrn": "urn:li:fsd_profilePosition:(ACoAAASARAHJENKINS,1001)",
+      "title": "Staff Software Engineer",
+      "companyName": "Stripe",
+      "companyUrn": "urn:li:fsd_company:12345",
+      "employmentType": "Full-time",
+      "locationType": "Hybrid",
+      "locationName": "San Francisco, CA",
+      "description": "Leading core payments ingestion pipeline architecture handling 50k+ QPS with 99.999% availability.",
+      "dateRange": {
+        "start": { "year": 2021, "month": 4 },
+        "end": null
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Position",
+      "entityUrn": "urn:li:fsd_profilePosition:(ACoAAASARAHJENKINS,1002)",
+      "title": "Senior Software Engineer",
+      "companyName": "Uber",
+      "companyUrn": "urn:li:fsd_company:67890",
+      "employmentType": "Full-time",
+      "locationType": "On-site",
+      "locationName": "San Francisco, CA",
+      "description": "Built distributed tracing and RPC routing infrastructure in Go and gRPC.",
+      "dateRange": {
+        "start": { "year": 2018, "month": 6 },
+        "end": { "year": 2021, "month": 3 }
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+      "entityUrn": "urn:li:fsd_profileEducation:(ACoAAASARAHJENKINS,2001)",
+      "schoolName": "Stanford University",
+      "degreeName": "Master of Science",
+      "fieldOfStudy": "Computer Science",
+      "dateRange": {
+        "start": { "year": 2016 },
+        "end": { "year": 2018 }
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Education",
+      "entityUrn": "urn:li:fsd_profileEducation:(ACoAAASARAHJENKINS,2002)",
+      "schoolName": "University of California, Berkeley",
+      "degreeName": "Bachelor of Science",
+      "fieldOfStudy": "Electrical Engineering & Computer Science",
+      "dateRange": {
+        "start": { "year": 2012 },
+        "end": { "year": 2016 }
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "entityUrn": "urn:li:fsd_skill:3001",
+      "name": "Distributed Systems"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "entityUrn": "urn:li:fsd_skill:3002",
+      "name": "Python"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "entityUrn": "urn:li:fsd_skill:3003",
+      "name": "FastAPI"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Skill",
+      "entityUrn": "urn:li:fsd_skill:3004",
+      "name": "Go"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Certification",
+      "entityUrn": "urn:li:fsd_profileCertification:(ACoAAASARAHJENKINS,4001)",
+      "name": "AWS Certified Solutions Architect - Professional",
+      "authority": "Amazon Web Services",
+      "licenseNumber": "AWS-PSA-99482",
+      "url": "https://aws.amazon.com/verification",
+      "dateRange": {
+        "start": { "year": 2022, "month": 5 },
+        "end": { "year": 2025, "month": 5 }
+      }
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+      "entityUrn": "urn:li:fsd_profileLanguage:(ACoAAASARAHJENKINS,5001)",
+      "name": "English",
+      "proficiency": "Native or bilingual"
+    },
+    {
+      "$type": "com.linkedin.voyager.dash.identity.profile.Language",
+      "entityUrn": "urn:li:fsd_profileLanguage:(ACoAAASARAHJENKINS,5002)",
+      "name": "French",
+      "proficiency": "Professional working"
+    }
+  ]
+}

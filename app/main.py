@@ -4,20 +4,18 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import structlog
-from fastapi import Depends, FastAPI, Request, status
+from fastapi import Body, Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.cache import InMemoryCache
-from app.config import save_env_credentials, settings
+from app.config import settings
 from app.errors import ErrorCode, ProfileForgeError
 from app.extractor.base import ProfileExtractor
-from app.extractor.linkedin import LinkedInExtractor
+from app.extractor.linkedin_direct import DirectLinkedInExtractor
 from app.extractor.mock import MockExtractor
 from app.logging_config import RequestLoggingMiddleware, setup_logging
 from app.models import (
@@ -26,27 +24,32 @@ from app.models import (
     ProfileLookupRequest,
     ProfileLookupResponse,
 )
-from app.providers.linkedapi.client import LinkedAPIClient
+from app.providers.linkedin.client import LinkedInClient
 from app.rate_limit import rate_limit_dependency
 from app.services.profile_service import ProfileService
+from app.ui import HTML_PLAYGROUND
 
 logger = structlog.get_logger(__name__)
 
-# Global cache and service instances
+# Global cache and direct HTTP client instances
 cache_instance = InMemoryCache(default_ttl_seconds=settings.CACHE_TTL_SECONDS)
+linkedin_http_client: LinkedInClient | None = None
 
 
 def create_profile_service() -> ProfileService:
     """Factory creating ProfileService configured for the active environment."""
+    global linkedin_http_client
     extractor: ProfileExtractor
-    if settings.EXTRACTOR_TYPE == "linkedapi" and settings.LINKEDAPI_TOKEN:
-        client = LinkedAPIClient(
-            api_token=settings.LINKEDAPI_TOKEN,
-            identification_token=settings.LINKEDAPI_IDENTIFICATION_TOKEN,
+
+    if settings.EXTRACTOR_TYPE == "linkedin":
+        linkedin_http_client = LinkedInClient(
+            li_at=settings.LINKEDIN_LI_AT,
+            jsessionid=settings.LINKEDIN_JSESSIONID,
+            user_agent=settings.LINKEDIN_USER_AGENT,
+            proxy_url=settings.LINKEDIN_PROXY_URL,
             timeout_seconds=settings.UPSTREAM_TIMEOUT_SECONDS,
-            poll_interval_seconds=settings.LINKEDAPI_POLL_INTERVAL_SECONDS,
         )
-        extractor = LinkedInExtractor(client=client)
+        extractor = DirectLinkedInExtractor(client=linkedin_http_client)
     else:
         extractor = MockExtractor()
 
@@ -63,6 +66,7 @@ profile_service = create_profile_service()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifecycle hook for resource initialization and teardown."""
+    settings.validate_runtime_configuration()
     setup_logging(environment=settings.ENVIRONMENT)
     logger.info(
         "server_startup",
@@ -72,33 +76,35 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     yield
     await cache_instance.clear()
+    if linkedin_http_client is not None:
+        await linkedin_http_client.close()
     logger.info("server_shutdown")
 
 
 app = FastAPI(
     title="ProfileForge API",
-    description="High-reliability Profile Lookup API returning normalized LinkedIn profile data.",
+    description="High-reliability Profile Lookup API returning normalized LinkedIn profile data via direct HTTP communication.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
 )
 
-# Attach Security & Operational Middleware
+# Attach Structured Logging & Traceability Middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# Restrictive CORS middleware
-allowed_origins = settings.CORS_ORIGINS if settings.CORS_ORIGINS else ["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-)
+# Secure CORS Middleware (Enabled only if explicit origins configured)
+if settings.CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+    )
 
 
-# Exception Handlers
+# Standardized Exception Handlers
 @app.exception_handler(ProfileForgeError)
 async def handle_profile_forge_error(
     request: Request, exc: ProfileForgeError
@@ -131,7 +137,7 @@ async def handle_validation_error(
     error_payload = ErrorResponse(
         error=ErrorDetails(
             code=ErrorCode.INVALID_PROFILE_URL.value,
-            message=f"Validation failed: {exc.errors()}",
+            message="The request body is invalid. Provide a LinkedIn profile URL in the 'url' field.",
             request_id=request_id,
         )
     )
@@ -143,9 +149,7 @@ async def handle_validation_error(
 
 
 @app.exception_handler(Exception)
-async def handle_unhandled_exception(
-    request: Request, exc: Exception
-) -> JSONResponse:
+async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
     """Catch-all unhandled exception handler ensuring zero internal stack traces in response."""
     request_id = getattr(request.state, "request_id", None)
     logger.exception("unhandled_internal_error", request_id=request_id, error=str(exc))
@@ -163,18 +167,14 @@ async def handle_unhandled_exception(
     )
 
 
-from fastapi.responses import HTMLResponse
-from app.ui import HTML_PLAYGROUND
-
-
-# Root Playground Endpoint
+# Root Visual Playground
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root() -> HTMLResponse:
     """Interactive visual playground and developer console."""
     return HTMLResponse(content=HTML_PLAYGROUND)
 
 
-# Health & Diagnostics Endpoints
+# Diagnostics Endpoints
 @app.get("/healthz", tags=["Diagnostics"])
 async def healthz() -> dict[str, str]:
     """Basic liveness probe."""
@@ -182,76 +182,24 @@ async def healthz() -> dict[str, str]:
 
 
 @app.get("/readyz", tags=["Diagnostics"])
-async def readyz() -> dict[str, str]:
+async def readyz() -> JSONResponse:
     """Readiness probe evaluating cache and service health."""
     stats = await cache_instance.get_stats()
-    return {
-        "status": "ready",
+    provider_configured = settings.EXTRACTOR_TYPE == "mock" or bool(
+        settings.LINKEDIN_LI_AT.strip() and settings.LINKEDIN_JSESSIONID.strip()
+    )
+    payload = {
+        "status": "ready" if provider_configured else "not_ready",
         "extractor": settings.EXTRACTOR_TYPE,
+        "provider_configured": provider_configured,
         "cache_entries": str(stats["size"]),
     }
-
-
-# Configuration & Credentials Management Models & Endpoints
-class CredentialUpdateRequest(BaseModel):
-    """Payload for updating LinkedAPI credentials and persistent .env configuration."""
-
-    linkedapi_token: str | None = Field(
-        default=None, description="LinkedAPI developer token"
+    return JSONResponse(
+        status_code=status.HTTP_200_OK
+        if provider_configured
+        else status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=payload,
     )
-    identification_token: str | None = Field(
-        default=None, description="LinkedAPI session identification token"
-    )
-    api_key: str | None = Field(
-        default=None, description="Client API key to authorize in X-API-Key header"
-    )
-    extractor_type: str | None = Field(
-        default="linkedapi", description="'linkedapi' or 'mock'"
-    )
-
-
-@app.get("/v1/config/status", tags=["Configuration"])
-async def get_config_status() -> dict[str, Any]:
-    """Check active provider mode and whether live credentials are configured."""
-    return {
-        "extractor_type": settings.EXTRACTOR_TYPE,
-        "has_linkedapi_token": bool(settings.LINKEDAPI_TOKEN),
-        "has_identification_token": bool(settings.LINKEDAPI_IDENTIFICATION_TOKEN),
-        "mock_keys_active": ["test-api-key-123", "forge-secret-dev"],
-        "max_concurrent_extractions": settings.MAX_CONCURRENT_EXTRACTIONS,
-    }
-
-
-@app.post("/v1/config/credentials", tags=["Configuration"])
-async def update_credentials(
-    payload: CredentialUpdateRequest,
-) -> dict[str, Any]:
-    """Persist credentials to .env and immediately activate real-time fetching."""
-    result = save_env_credentials(
-        linkedapi_token=payload.linkedapi_token,
-        identification_token=payload.identification_token,
-        api_key=payload.api_key,
-        extractor_type=payload.extractor_type,
-    )
-    # Clear in-memory cache so fresh credentials take immediate effect
-    await cache_instance.clear()
-    logger.info(
-        "credentials_updated_via_api",
-        extractor_type=settings.EXTRACTOR_TYPE,
-        has_token=bool(settings.LINKEDAPI_TOKEN),
-    )
-    return {
-        "status": "success",
-        "message": "Credentials successfully saved to .env and cache cleared.",
-        "config": result,
-    }
-
-
-@app.post("/v1/cache/clear", tags=["Configuration"])
-async def clear_cache() -> dict[str, str]:
-    """Clear all cached profiles from in-memory cache."""
-    await cache_instance.clear()
-    return {"status": "success", "message": "Cache successfully cleared."}
 
 
 # Core Lookup Endpoint
@@ -261,47 +209,66 @@ async def clear_cache() -> dict[str, str]:
     status_code=status.HTTP_200_OK,
     tags=["Profile Lookup"],
     summary="Lookup LinkedIn Profile",
-    description="Accepts a LinkedIn profile URL, fetches structured data, and returns normalized JSON with quality metrics.",
+    description="Accepts a LinkedIn profile URL, fetches structured data directly over HTTP, and returns normalized JSON.",
+    responses={
+        status.HTTP_200_OK: {
+            "model": ProfileLookupResponse,
+            "description": "Successful profile lookup returning structured normalized JSON",
+        },
+        status.HTTP_400_BAD_REQUEST: {
+            "model": ErrorResponse,
+            "description": "Invalid LinkedIn profile URL or unsupported hostname",
+        },
+        status.HTTP_401_UNAUTHORIZED: {
+            "model": ErrorResponse,
+            "description": "Authentication failed: Missing or invalid ProfileForge API key ('X-API-Key' header)",
+        },
+        status.HTTP_404_NOT_FOUND: {
+            "model": ErrorResponse,
+            "description": "Profile not found on LinkedIn",
+        },
+        status.HTTP_429_TOO_MANY_REQUESTS: {
+            "model": ErrorResponse,
+            "description": "Client rate limit exceeded (Retry-After header included)",
+        },
+        status.HTTP_502_BAD_GATEWAY: {
+            "model": ErrorResponse,
+            "description": "Upstream LinkedIn error, rate limit, anti-bot challenge, or schema change",
+        },
+        status.HTTP_504_GATEWAY_TIMEOUT: {
+            "model": ErrorResponse,
+            "description": "Upstream LinkedIn request timed out",
+        },
+    },
 )
 async def lookup_profile(
-    body: ProfileLookupRequest,
     request: Request,
+    body: ProfileLookupRequest = Body(  # noqa: B008
+        openapi_examples={
+            "default": {
+                "summary": "Standard Profile Lookup",
+                "description": "Standard profile lookup with default caching behavior",
+                "value": {
+                    "url": "https://www.linkedin.com/in/sarah-jenkins-dev",
+                    "bypass_cache": False,
+                },
+            },
+            "bypass_cache": {
+                "summary": "Force Live Lookup",
+                "description": "Force fresh live extraction bypassing cache",
+                "value": {
+                    "url": "https://www.linkedin.com/in/sarah-jenkins-dev",
+                    "bypass_cache": True,
+                },
+            },
+        }
+    ),
     api_key: str = Depends(rate_limit_dependency),
 ) -> ProfileLookupResponse:
-    """Primary profile lookup route protected by API key and rate limiting.
-
-    - Uses live LinkedInExtractor if settings.EXTRACTOR_TYPE == 'linkedapi' and tokens are present.
-    - Uses MockExtractor if mode is set to 'mock' or if running offline.
-    """
+    """Primary profile lookup route protected by API key and rate limiting."""
     request_id = getattr(request.state, "request_id", "req-unknown")
-    header_mode = request.headers.get("X-Extractor-Mode", "").lower()
-
-    override_extractor: ProfileExtractor | None = None
-
-    if header_mode == "mock" or (
-        settings.EXTRACTOR_TYPE == "mock" and not settings.LINKEDAPI_TOKEN
-    ):
-        override_extractor = MockExtractor()
-    elif settings.EXTRACTOR_TYPE == "linkedapi" or settings.LINKEDAPI_TOKEN:
-        if not settings.LINKEDAPI_TOKEN or not settings.LINKEDAPI_IDENTIFICATION_TOKEN:
-            raise ProfileForgeError(
-                ErrorCode.AUTH_CONFIGURATION_ERROR,
-                "LinkedAPI credentials incomplete. Please configure LINKEDAPI_TOKEN and LINKEDAPI_IDENTIFICATION_TOKEN in .env or via the playground.",
-                status_code=503,
-            )
-        client = LinkedAPIClient(
-            api_token=settings.LINKEDAPI_TOKEN,
-            identification_token=settings.LINKEDAPI_IDENTIFICATION_TOKEN,
-            timeout_seconds=settings.UPSTREAM_TIMEOUT_SECONDS,
-            poll_interval_seconds=settings.LINKEDAPI_POLL_INTERVAL_SECONDS,
-        )
-        override_extractor = LinkedInExtractor(client=client)
-    else:
-        override_extractor = MockExtractor()
-
     return await profile_service.lookup(
         body.url,
         request_id=request_id,
-        override_extractor=override_extractor,
         bypass_cache=body.bypass_cache,
     )

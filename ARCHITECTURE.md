@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-ProfileForge is a high-reliability Profile Lookup API built with FastAPI. It accepts LinkedIn profile URLs, validates and canonicalizes input, queries an in-memory cache, bounds concurrency, coordinates with an asynchronous upstream workflow engine (LinkedAPI), and returns normalized profile data conforming to a clean, provider-agnostic domain schema.
+ProfileForge is a high-reliability, API-first Profile Lookup service built with FastAPI and Python 3.12+. It accepts LinkedIn profile URLs, validates input and enforces SSRF protections, checks an in-memory cache, bounds concurrency, executes direct HTTP communication against LinkedIn's internal Voyager REST API using authorized session credentials, and returns normalized structured JSON conforming to a stable domain schema.
 
 ---
 
@@ -10,34 +10,36 @@ ProfileForge is a high-reliability Profile Lookup API built with FastAPI. It acc
 
 ```mermaid
 graph TD
-    Client["API Client / Consumer"]
+    Client["API Client / Web UI"]
     
-    subgraph FastAPI HTTP Application Layer
-        API["FastAPI App (app/main.py)"]
-        ReqID["Request ID Middleware"]
-        LoggingMW["Structured Logging Middleware"]
+    subgraph FastAPI HTTP Layer (app/main.py)
+        API["FastAPI App Router"]
+        ReqID["Request ID Middleware (X-Request-ID)"]
+        LoggingMW["Structured JSON Logging Middleware"]
         AuthMW["API Key Authentication (X-API-Key)"]
         RateLimitMW["Sliding Window Rate Limiter"]
     end
     
-    subgraph Service & Core Layer
-        URLVal["URL Validator & SSRF Guard"]
-        ProfileSvc["ProfileService"]
-        Cache["InMemoryCache (Canonical ID Key)"]
-        Sem["Concurrency Semaphore (MAX_CONCURRENT_EXTRACTIONS=2)"]
+    subgraph Service Layer (app/services/)
+        URLVal["URL Validator & SSRF Guard (url_utils.py)"]
+        ProfileSvc["ProfileService (profile_service.py)"]
+        Cache["InMemoryCache with TTL (cache.py)"]
+        SingleFlight["Single-Flight Request Coalescing"]
+        Sem["Concurrency Semaphore (MAX_CONCURRENT_EXTRACTIONS)"]
     end
     
-    subgraph Provider Adapter Layer (app/providers/linkedapi)
-        ExtIF["ProfileExtractor Protocol"]
-        LinkedInExt["LinkedInExtractor"]
-        ClientHTTP["LinkedAPIClient (HTTP Submit + Poll)"]
-        Parser["LinkedAPIParser (Schema Validation)"]
-        Resolver["LinkedAPIResolver (URN & Entity Index)"]
-        Normalizer["LinkedAPINormalizer (DataQuality & Domain Map)"]
+    subgraph Direct LinkedIn Provider Layer (app/providers/linkedin/)
+        ExtIF["ProfileExtractor Protocol (app/extractor/base.py)"]
+        DirectExt["DirectLinkedInExtractor (app/extractor/linkedin_direct.py)"]
+        ReqBuilder["LinkedInRequestBuilder"]
+        ClientHTTP["LinkedInClient (httpx.AsyncClient)"]
+        Parser["LinkedInParser (Entity Classification)"]
+        Resolver["LinkedInResolver (URN Index & Degree Regex)"]
+        Normalizer["LinkedInNormalizer (Domain & Quality Score)"]
     end
     
-    subgraph Upstream Cloud Service
-        RemoteAPI["LinkedAPI Remote API (api.linkedapi.io)"]
+    subgraph Upstream LinkedIn API
+        VoyagerAPI["LinkedIn Voyager API (linkedin.com/voyager/api)"]
     end
 
     Client -->|HTTPS Request| ReqID
@@ -48,40 +50,47 @@ graph TD
     API --> URLVal
     URLVal --> ProfileSvc
     ProfileSvc --> Cache
-    Cache -->|Cache HIT <10ms| API
-    Cache -->|Cache MISS| Sem
+    Cache -->|Cache HIT| API
+    Cache -->|Cache MISS| SingleFlight
+    SingleFlight --> Sem
     Sem --> ExtIF
-    ExtIF --> LinkedInExt
-    LinkedInExt --> ClientHTTP
-    ClientHTTP -->|POST /workflows & GET poll| RemoteAPI
+    ExtIF --> DirectExt
+    DirectExt --> ReqBuilder
+    ReqBuilder --> ClientHTTP
+    ClientHTTP -->|Direct GET + Session Cookie + CSRF| VoyagerAPI
+    VoyagerAPI -->>|200 OK + Normalized JSON| ClientHTTP
     ClientHTTP --> Parser
     Parser --> Resolver
     Resolver --> Normalizer
     Normalizer --> ProfileSvc
     ProfileSvc --> Cache
+    ProfileSvc --> API
+    API --> Client
 ```
 
 ---
 
-## 3. Core Request & Asynchronous Lifecycle Sequence
+## 3. Core Request & Direct HTTP Sequence
 
 ```mermaid
 sequenceDiagram
+    autonumber
     participant C as Client
     participant API as FastAPI Router
     participant Auth as Auth & Rate Limiter
     participant Svc as ProfileService
     participant Cache as InMemoryCache
     participant Sem as Concurrency Guard
-    participant Ext as LinkedAPI Adapter
-    participant Upstream as api.linkedapi.io
+    participant Ext as DirectLinkedInExtractor
+    participant Http as LinkedInClient
+    participant LI as LinkedIn Voyager API
 
-    C->>API: POST /v1/profile { "url": "https://linkedin.com/in/foo" }
-    API->>Auth: Validate API Key & Check Rate Limit
-    Auth-->>API: Authorized
-    API->>Svc: lookup_profile(url)
-    Svc->>Svc: Validate URL & Extract Canonical ID ("foo")
-    Svc->>Cache: get("foo")
+    C->>API: POST /v1/profile { "url": "https://linkedin.com/in/sarah-jenkins" }
+    API->>Auth: Validate X-API-Key & Sliding Window Quota
+    Auth-->>API: Key Authorized
+    API->>Svc: lookup(url)
+    Svc->>Svc: Validate URL & Extract Slug ("sarah-jenkins")
+    Svc->>Cache: get("sarah-jenkins")
 
     alt Cache HIT
         Cache-->>Svc: ProfileData (cache_hit=True)
@@ -89,74 +98,60 @@ sequenceDiagram
         API-->>C: 200 OK + JSON Response (<10ms)
     else Cache MISS
         Svc->>Sem: acquire()
-        Sem->>Ext: fetch("https://www.linkedin.com/in/foo")
-        Ext->>Upstream: POST /workflows { st.openPersonPage + then: [...] }
-        Upstream-->>Ext: { success: true, result: { workflowId: "wf-123", workflowStatus: "pending" } }
-        
-        loop Poll until completed / timeout
-            Ext->>Upstream: GET /workflows/wf-123
-            Upstream-->>Ext: { workflowStatus: "running" / "completed" }
-            Ext->>Ext: sleep(3.0)
-        end
-        
-        Ext->>Ext: Parse completion -> Resolve URNs -> Normalize
+        Sem->>Ext: fetch("https://www.linkedin.com/in/sarah-jenkins")
+        Ext->>Http: fetch_profile_raw("sarah-jenkins")
+        Http->>LI: GET /voyager/api/identity/dash/profiles?q=memberIdentity&memberIdentity=sarah-jenkins...
+        LI-->>Http: 200 OK + { data: ..., included: [...] }
+        Http-->>Ext: Raw Normalized JSON
+        Ext->>Ext: Parse ➔ Resolve References ➔ Normalize
         Ext-->>Sem: ProfileData
-        Sem-->>Svc: ProfileData (cache_hit=False)
-        Svc->>Cache: set("foo", ProfileData, ttl=3600)
-        Svc-->>API: ProfileLookupResponse
-        API-->>C: 200 OK + JSON Response
+        Sem-->>Svc: ProfileData
+        Svc->>Cache: set("sarah-jenkins", ProfileData, ttl=3600)
+        Svc-->>API: ProfileLookupResponse (cache_hit=False)
+        API-->>C: 200 OK + JSON Response + X-Request-ID
     end
 ```
 
 ---
 
-## 4. Layer Responsibilities & Boundaries
+## 4. Trust Boundaries & Security Architecture
 
-### 4.1 HTTP & Middleware Layer (`app/`)
-- **`app/main.py`**: Route definitions (`/v1/profile`, `/healthz`, `/readyz`), global exception handlers.
-- **`app/auth.py`**: Fast, constant-time verification of `X-API-Key` headers.
-- **`app/rate_limit.py`**: In-memory sliding window rate limiter per API key.
-- **`app/logging_config.py`**: Structured JSON logging with `structlog`, request ID tracking, and automatic credential sanitization.
-
-### 4.2 Core Service & Security Layer (`app/services/`)
-- **`app/services/url_utils.py`**: Strict LinkedIn URL validation, SSRF defense, loopback/private IP blocking, query parameter stripping, and canonical profile ID extraction.
-- **`app/services/profile_service.py`**: Cache coordination, concurrency gating (`asyncio.Semaphore`), and domain error mapping.
-
-### 4.3 Provider Adapter Pipeline (`app/providers/linkedapi/`)
-- **`client.py`**: Manages HTTP workflow submission, asynchronous polling with backoff, and terminal failure detection against `https://api.linkedapi.io`.
-- **`parser.py`**: Validates raw JSON structures and detects schema drift (`FIELD_NOT_PRESENT` vs `PARSER_FAILURE` vs `UPSTREAM_SCHEMA_CHANGED`).
-- **`resolver.py`**: Resolves member URNs, organization URNs, and indexes nested `then[]` action arrays.
-- **`normalizer.py`**: Converts raw parsed records into `ProfileData` and computes deterministic `DataQuality` metrics.
-
-### 4.4 Domain Models (`app/models.py`)
-- Pydantic v2 domain representations of experiences, educations, languages, certifications, data quality metrics, and standardized error envelopes.
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ EXTERNAL CLIENT (Untrusted)                                 │
+│  - Public API Consumer                                      │
+│  - Supplies: X-API-Key header, Target Profile URL           │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTPS
+┌──────────────────────────────▼──────────────────────────────┐
+│ APPLICATION TRUST DOMAIN (Trusted)                          │
+│  - FastAPI Application Server                               │
+│  - Constant-time API Key Verification (secrets.compare_digest)
+│  - SSRF Verification (Blocks private/loopback/cloud metadata)
+│  - Rate Limiting (Sliding window counter)                   │
+│  - Single-Flight Request Coalescing & Concurrency Semaphore │
+│  - In-Memory Cache (TTL Expiration)                         │
+└──────────────────────────────┬──────────────────────────────┘
+                               │ HTTPS + Session Cookies
+┌──────────────────────────────▼──────────────────────────────┐
+│ UPSTREAM PROVIDER BOUNDARY (Semi-Trusted)                   │
+│  - Direct HTTP Connection to LinkedIn Voyager API           │
+│  - Authenticated via secure environment variables:          │
+│    LINKEDIN_LI_AT and LINKEDIN_JSESSIONID                   │
+│  - CSRF Token derived from JSESSIONID                       │
+│  - Error classification: 401, 403, 404, 429, 999, Redirects │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 5. Deployment Topology
+## 5. Architectural Invariants
 
-```text
-┌───────────────────────────────────────────────────────────┐
-│                      Render.com                           │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │ Docker Container (python:3.12-slim)                 │  │
-│  │                                                     │  │
-│  │   Uvicorn ASGI Server (Port 10000)                  │  │
-│  │   ├── FastAPI HTTP Application                      │  │
-│  │   ├── In-Memory Sliding Window Rate Limiter         │  │
-│  │   ├── In-Memory Profile Cache (TTL=3600s)           │  │
-│  │   └── Asynchronous LinkedAPI HTTP Adapter           │  │
-│  │                                                     │  │
-│  │   Non-root User: appuser                            │  │
-│  │   Environment: API_KEYS, LINKEDAPI_*                │  │
-│  └─────────────────────────────────────────────────────┘  │
-│  HTTPS Termination (*.onrender.com)                       │
-└─────────────────────────────┬─────────────────────────────┘
-                              │
-                              │ Outbound HTTPS (REST API)
-                              ▼
-┌───────────────────────────────────────────────────────────┐
-│                  api.linkedapi.io                         │
-│  Workflow Execution & Cloud Browser Automation Service    │
-└───────────────────────────────────────────────────────────┘
-```
+1. **Separation of API and Provider**: The HTTP layer knows nothing about LinkedIn Voyager structures or entity representations.
+2. **Four-Stage Provider Pipeline**:
+   - `Client`: Manages direct HTTP transport, cookies, headers, timeouts, status codes, and challenge detection.
+   - `Parser`: Categorizes raw entities from the `included[]` store and detects schema drift.
+   - `Resolver`: Resolves entity relationships, foreign URN keys, media URLs, and degree regex patterns.
+   - `Normalizer`: Produces domain `ProfileData` and computes objective `DataQuality`.
+3. **Single-Flight Request Coalescing**: Concurrent requests for the same uncached profile ID merge into a single in-flight lookup, preventing thundering herds and redundant upstream load.
+4. **SSRF Guard**: All incoming URLs are verified against an exact hostname allowlist and checked against IPv4/IPv6 private and link-local ranges before any network dispatch.
