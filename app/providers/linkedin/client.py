@@ -284,14 +284,15 @@ class LinkedInClient:
 
         if status_code in (301, 302, 303, 307, 308):
             logger.warning(
-                "upstream_redirect",
+                "upstream_redirect_challenge",
                 slug=slug,
                 status=status_code,
                 location=redirect_target,
             )
             raise ProfileForgeError(
-                ErrorCode.UPSTREAM_SERVER_ERROR,
-                f"LinkedIn returned unexpected HTTP status code {status_code}.",
+                ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
+                f"LinkedIn redirected the direct Voyager request (HTTP {status_code}) to a login/auth checkpoint. "
+                "Session cookies (li_at, JSESSIONID) may be expired, challenged, or invalid.",
                 status_code=502,
             )
 

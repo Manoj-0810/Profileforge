@@ -299,9 +299,8 @@ python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=
 ## 11. Known Limitations
 
 1. **Session Longevity**: Direct HTTP integration requires active `li_at` and `JSESSIONID` cookies. Cookies expire periodically (typically 30–90 days) and must be updated in server environment variables.
-2. **Cloud Session Rejection**: LinkedIn may bind sessions to IP/device context or invalidate them when a session is replayed from a cloud environment. The observed 403 is consistent with session expiry, cookie mismatch, CSRF mismatch, or an upstream security challenge; LinkedIn does not expose the exact rejection reason. The code classifies the resulting response as `UPSTREAM_AUTH_FAILED`. Production-grade access requires LinkedIn's official OAuth API or another permitted integration; a dedicated test account may reduce risk for challenge demonstration but is not a guarantee.
-3. **Anti-Bot Challenges**: If LinkedIn flags an IP or session with a CAPTCHA or checkpoint challenge, ProfileForge detects and classifies it as `UPSTREAM_CHALLENGE_DETECTED` (HTTP 502) without attempting illegal bypasses.
-4. **In-Memory Cache**: The default cache implementation is in-memory; entries clear on server restart.
+2. **Authorized Session & Upstream Rejections**: ProfileForge communicates directly with LinkedIn's Voyager endpoint without browser automation. Because Voyager requires an authorized session, LinkedIn may return `401 Unauthorized`, `403 Forbidden`, or `302 Found` (redirect to login/checkpoint) when the session expires, is revoked, or is challenged. ProfileForge safely catches and classifies these responses (`UPSTREAM_AUTH_FAILED`, `UPSTREAM_CHALLENGE_DETECTED`) rather than attempting fragile login automation or CAPTCHA bypasses.
+3. **In-Memory Cache**: The default cache implementation is in-memory; entries clear on server restart. Long-lived caching insulates repeated profile lookups from upstream availability.
 
 ---
 
