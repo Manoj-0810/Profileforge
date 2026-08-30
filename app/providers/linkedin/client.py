@@ -37,8 +37,7 @@ class LinkedInRequestBuilder:
     @staticmethod
     def derive_csrf_token(jsessionid: str) -> str:
         """Derive the required csrf-token header from JSESSIONID by stripping quotes."""
-        cleaned = jsessionid.strip().strip('"').strip("'")
-        return cleaned
+        return jsessionid.strip().strip('"').strip("'")
 
     @classmethod
     def build_headers(
@@ -65,7 +64,7 @@ class LinkedInRequestBuilder:
     def build_cookies(li_at: str, jsessionid: str) -> dict[str, str]:
         """Build session cookie mapping for authentication."""
         return {
-            "li_at": li_at.strip(),
+            "li_at": li_at.strip().strip('"').strip("'"),
             "JSESSIONID": jsessionid.strip(),
         }
 
@@ -135,89 +134,125 @@ class LinkedInClient:
                 status_code=503,
             )
 
-        target_url = LinkedInRequestBuilder.build_profile_url(slug)
         headers = LinkedInRequestBuilder.build_headers(self.jsessionid, self.user_agent)
         cookies = LinkedInRequestBuilder.build_cookies(self.li_at, self.jsessionid)
-
         client = self._get_client()
-        attempt = 0
 
-        while True:
-            attempt += 1
-            try:
-                logger.info(
-                    "upstream_linkedin_fetch_start",
-                    slug=slug,
-                    attempt=attempt,
-                    url=target_url,
-                )
-                response = await client.get(
-                    target_url,
-                    headers=headers,
-                    cookies=cookies,
-                )
-                if 500 <= response.status_code < 600 and attempt <= self.max_retries:
-                    backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
+        # Try Dash endpoint first, then legacy profileView endpoint if necessary
+        endpoints_to_try = [
+            LinkedInRequestBuilder.build_profile_url(slug),
+            LinkedInRequestBuilder.build_legacy_profile_url(slug),
+        ]
+
+        last_error: Exception | None = None
+
+        for endpoint_idx, target_url in enumerate(endpoints_to_try):
+            attempt = 0
+            while True:
+                attempt += 1
+                try:
+                    logger.info(
+                        "upstream_linkedin_fetch_start",
+                        slug=slug,
+                        endpoint_index=endpoint_idx,
+                        attempt=attempt,
+                        url=target_url,
+                    )
+                    response = await client.get(
+                        target_url,
+                        headers=headers,
+                        cookies=cookies,
+                    )
+
+                    # If 5xx, retry with exponential backoff
+                    if (
+                        500 <= response.status_code < 600
+                        and attempt <= self.max_retries
+                    ):
+                        backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
+                        logger.warning(
+                            "upstream_linkedin_server_retry",
+                            slug=slug,
+                            attempt=attempt,
+                            status=response.status_code,
+                            backoff_seconds=round(backoff, 2),
+                        )
+                        await asyncio.sleep(backoff)
+                        continue
+
+                    # If primary endpoint returned 403/404 and fallback is available, try fallback
+                    if response.status_code in (403, 404) and endpoint_idx == 0:
+                        logger.warning(
+                            "upstream_primary_endpoint_failed_trying_fallback",
+                            slug=slug,
+                            status=response.status_code,
+                        )
+                        break
+
+                    return self._classify_and_handle_response(response, slug)
+
+                except httpx.TimeoutException as exc:
                     logger.warning(
-                        "upstream_linkedin_server_retry",
+                        "upstream_linkedin_timeout",
                         slug=slug,
                         attempt=attempt,
-                        status=response.status_code,
-                        backoff_seconds=round(backoff, 2),
+                        error=str(exc),
                     )
-                    await asyncio.sleep(backoff)
-                    continue
-                return self._classify_and_handle_response(response, slug)
+                    if attempt <= self.max_retries:
+                        backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
+                        await asyncio.sleep(backoff)
+                        continue
+                    last_error = ProfileForgeError(
+                        ErrorCode.UPSTREAM_TIMEOUT,
+                        f"LinkedIn upstream timed out after {self.timeout_seconds}s.",
+                        status_code=504,
+                    )
+                    break
 
-            except httpx.TimeoutException as exc:
-                logger.warning(
-                    "upstream_linkedin_timeout",
-                    slug=slug,
-                    attempt=attempt,
-                    error=str(exc),
-                )
-                if attempt <= self.max_retries:
-                    backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
-                    await asyncio.sleep(backoff)
-                    continue
-                raise ProfileForgeError(
-                    ErrorCode.UPSTREAM_TIMEOUT,
-                    f"LinkedIn upstream timed out after {self.timeout_seconds}s.",
-                    status_code=504,
-                ) from exc
+                except httpx.NetworkError as exc:
+                    logger.warning(
+                        "upstream_linkedin_network_error",
+                        slug=slug,
+                        attempt=attempt,
+                        error=str(exc),
+                    )
+                    if attempt <= self.max_retries:
+                        backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
+                        await asyncio.sleep(backoff)
+                        continue
+                    last_error = ProfileForgeError(
+                        ErrorCode.UPSTREAM_UNAVAILABLE,
+                        f"Network error connecting to LinkedIn upstream: {exc}",
+                        status_code=502,
+                    )
+                    break
 
-            except httpx.NetworkError as exc:
-                logger.warning(
-                    "upstream_linkedin_network_error",
-                    slug=slug,
-                    attempt=attempt,
-                    error=str(exc),
-                )
-                if attempt <= self.max_retries:
-                    backoff = (2 ** (attempt - 1)) + random.uniform(0.1, 0.5)
-                    await asyncio.sleep(backoff)
-                    continue
-                raise ProfileForgeError(
-                    ErrorCode.UPSTREAM_UNAVAILABLE,
-                    f"Network error connecting to LinkedIn upstream: {exc}",
-                    status_code=502,
-                ) from exc
+                except ProfileForgeError as exc:
+                    last_error = exc
+                    break
 
-            except ProfileForgeError:
-                raise
+                except Exception as exc:
+                    logger.exception(
+                        "upstream_linkedin_unexpected_error",
+                        slug=slug,
+                        attempt=attempt,
+                        error=str(exc),
+                    )
+                    last_error = ProfileForgeError(
+                        ErrorCode.UPSTREAM_SERVER_ERROR,
+                        f"Unexpected error communicating with LinkedIn: {exc}",
+                        status_code=502,
+                    )
+                    break
 
-            except Exception as exc:
-                logger.exception(
-                    "upstream_linkedin_unexpected_error",
-                    slug=slug,
-                    attempt=attempt,
-                    error=str(exc),
-                )
-                raise ProfileForgeError(
-                    ErrorCode.UPSTREAM_SERVER_ERROR,
-                    f"Unexpected error communicating with LinkedIn: {exc}",
-                    status_code=502,
-                ) from exc
+        if last_error is not None:
+            raise last_error
+
+        raise ProfileForgeError(
+            ErrorCode.UPSTREAM_SERVER_ERROR,
+            "Failed to retrieve profile from all upstream endpoints.",
+            status_code=502,
+        )
 
     def _classify_and_handle_response(
         self, response: httpx.Response, slug: str
@@ -292,7 +327,7 @@ class LinkedInClient:
             logger.warning("upstream_auth_forbidden", slug=slug)
             raise ProfileForgeError(
                 ErrorCode.UPSTREAM_AUTH_FAILED,
-                "LinkedIn access forbidden. Verify session permissions and CSRF token.",
+                "LinkedIn access forbidden (403). Please verify that your li_at session cookie and JSESSIONID are fresh and copied from an active LinkedIn browser session.",
                 status_code=502,
             )
 
