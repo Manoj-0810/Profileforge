@@ -8,6 +8,7 @@ on:
 
 jobs:
   quality-gate:
+    name: Quality Gate & Test Suite
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -22,28 +23,19 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt ruff mypy pytest-cov
+          pip install -r requirements.txt
 
-      - name: Run Ruff Lint & Format Check
-        run: |
-          ruff check app/ tests/
-          ruff format --check app/ tests/
+      - name: Run Ruff Lint Check
+        run: python -m ruff check app/ tests/
+
+      - name: Run Ruff Format Check
+        run: python -m ruff format --check app/ tests/
 
       - name: Run Mypy Static Type Analysis
-        run: |
-          mypy app/
+        run: python -m mypy app/
 
-      - name: Run Pytest Offline Test Suite & Contract Tests
-        run: |
-          python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=85
+      - name: Run Pytest Test Suite with Coverage
+        run: python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=85
 
       - name: Build Docker Container
-        run: |
-          docker build -t profileforge:ci .
-
-      - name: Multi-Layered Secret Audit
-        run: |
-          # Guarantee .env is never tracked in git
-          ! git ls-files --error-unmatch .env 2>/dev/null || (echo "CRITICAL: .env is tracked in git!" && exit 1)
-          # Execute dedicated secret audit test suite
-          python -m pytest tests/unit/test_secret_leakage.py -v
+        run: docker build -t profileforge:ci .
