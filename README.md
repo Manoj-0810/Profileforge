@@ -26,10 +26,10 @@ It features:
 The service is deployment-ready for Render or any Docker-compatible host. After
 deployment, verify the host before submitting it and add the real URL here:
 
-- **Public HTTPS Base URL**: `<YOUR_DEPLOYED_HTTPS_URL>`
-- **Interactive Web UI**: `<YOUR_DEPLOYED_HTTPS_URL>/`
-- **Interactive OpenAPI Documentation**: `<YOUR_DEPLOYED_HTTPS_URL>/docs`
-- **Health Check**: `<YOUR_DEPLOYED_HTTPS_URL>/healthz`
+- **Public HTTPS Base URL**: `https://profileforge-ysbd.onrender.com`
+- **Interactive Web UI**: `https://profileforge-ysbd.onrender.com/`
+- **Interactive OpenAPI Documentation**: `https://profileforge-ysbd.onrender.com/docs`
+- **Health Check**: `https://profileforge-ysbd.onrender.com/healthz`
 
 For local development, use `http://localhost:10000`.
 
