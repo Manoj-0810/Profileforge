@@ -1267,6 +1267,13 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
 
       errorBanner.style.display = 'none';
 
+      // Never keep showing an older profile while a new lookup is pending or
+      // after it fails. A failed live request must not look like fresh data.
+      resultsContainer.style.display = 'none';
+      emptyState.style.display = 'flex';
+      rawResponseData = null;
+      document.getElementById('resRawJson').innerText = '// No successful response yet...';
+
       if (!apiKey) {
         document.getElementById('errorTitle').innerText = 'ProfileForge API Key Required';
         document.getElementById('errorMessage').innerText = 'Please enter your ProfileForge API Key to authenticate your request.';
@@ -1291,7 +1298,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
         });
 
         const elapsedMs = Math.round(performance.now() - startTime);
-      const data = await response.json().catch(() => ({}));
+        const data = await response.json().catch(() => ({}));
         rawResponseData = data;
 
         if (!response.ok) {

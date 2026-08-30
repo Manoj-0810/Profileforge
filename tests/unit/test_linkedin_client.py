@@ -19,9 +19,6 @@ def test_request_builder_url_and_headers():
     assert "memberIdentity=sarah-jenkins-dev" in url
     assert DEFAULT_DECORATION_ID in url
 
-    legacy_url = LinkedInRequestBuilder.build_legacy_profile_url("sarah-jenkins-dev")
-    assert legacy_url.endswith("/identity/profiles/sarah-jenkins-dev/profileView")
-
     headers = LinkedInRequestBuilder.build_headers(
         jsessionid='"ajax:1234567890"', user_agent="TestAgent/1.0"
     )
@@ -29,6 +26,8 @@ def test_request_builder_url_and_headers():
     assert headers["x-restli-protocol-version"] == "2.0.0"
     assert headers["accept"] == "application/vnd.linkedin.normalized+json+2.1"
     assert headers["user-agent"] == "TestAgent/1.0"
+    assert "referer" not in headers
+    assert "sec-ch-ua" not in headers
 
     cookies = LinkedInRequestBuilder.build_cookies("test-li-at", '"ajax:1234567890"')
     assert cookies["li_at"] == "test-li-at"
@@ -85,6 +84,25 @@ async def test_client_handles_401_and_403_auth_failures():
             await client.fetch_profile_raw("sarah-jenkins")
         assert exc_info.value.error_code == ErrorCode.UPSTREAM_AUTH_FAILED
         assert exc_info.value.status_code == 502
+
+
+@pytest.mark.asyncio
+async def test_client_does_not_probe_another_endpoint_after_auth_failure():
+    """Verify a rejected session fails once instead of replaying cookies elsewhere."""
+    requested_paths: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested_paths.append(request.url.path)
+        return httpx.Response(403)
+
+    mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = LinkedInClient(li_at="test", jsessionid="test", http_client=mock_http)
+
+    with pytest.raises(ProfileForgeError) as exc_info:
+        await client.fetch_profile_raw("sarah-jenkins")
+
+    assert exc_info.value.error_code == ErrorCode.UPSTREAM_AUTH_FAILED
+    assert requested_paths == ["/voyager/api/identity/dash/profiles"]
 
 
 @pytest.mark.asyncio
