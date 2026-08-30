@@ -43,5 +43,7 @@ jobs:
 
       - name: Multi-Layered Secret Audit
         run: |
-          # Scan for leaked session tokens, passwords, or credentials assigned to literals
-          ! git grep -nEi "password[[:space:]]*=[[:space:]]*['\"][^'\"]+['\"]|token[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_\-]{24,}['\"]|li_at[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_\-]{10,}['\"]" -- app/ docs/ tests/ || (echo "Potential secret detected!" && exit 1)
+          # Guarantee .env is never tracked in git
+          ! git ls-files --error-unmatch .env 2>/dev/null || (echo "CRITICAL: .env is tracked in git!" && exit 1)
+          # Execute dedicated secret audit test suite
+          python -m pytest tests/unit/test_secret_leakage.py -v
