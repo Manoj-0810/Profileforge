@@ -41,7 +41,7 @@ For local development, use `http://localhost:10000`.
 
 ```bash
 # 1. Clone the public repository and navigate to directory
-git clone <YOUR_PUBLIC_REPOSITORY_URL>
+git clone https://github.com/Manoj-0810/Profileforge.git
 cd profileforge
 
 # 2. Create virtual environment and install dependencies
