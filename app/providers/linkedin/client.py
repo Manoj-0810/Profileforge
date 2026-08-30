@@ -1,4 +1,4 @@
-"""Direct HTTP client for reverse-engineered LinkedIn Voyager endpoints."""
+"""Direct HTTP client for reverse-engineered LinkedIn Rest.li Voyager API."""
 
 from __future__ import annotations
 
@@ -14,69 +14,79 @@ from app.errors import ErrorCode, ProfileForgeError
 logger = structlog.get_logger(__name__)
 
 VOYAGER_BASE_URL = "https://www.linkedin.com/voyager/api"
+DASH_PROFILE_ENDPOINT = f"{VOYAGER_BASE_URL}/identity/dash/profiles"
 DEFAULT_DECORATION_ID = (
     "com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93"
 )
+PROFILE_DECORATION_ID = DEFAULT_DECORATION_ID
 
 
 class LinkedInRequestBuilder:
-    """Explicit request builder for LinkedIn Voyager API interactions."""
+    """Constructs authenticated HTTP requests for LinkedIn Voyager endpoints."""
 
     @staticmethod
-    def build_profile_url(slug: str, decoration_id: str = DEFAULT_DECORATION_ID) -> str:
-        """Construct the full parameterized Voyager Dash profiles URL."""
-        params = httpx.QueryParams(
-            {
-                "q": "memberIdentity",
-                "memberIdentity": slug,
-                "decorationId": decoration_id,
-            }
-        )
-        return f"{VOYAGER_BASE_URL}/identity/dash/profiles?{params}"
+    def build_profile_url(slug: str) -> str:
+        """Construct the primary Voyager Dash profile endpoint URL."""
+        return f"{DASH_PROFILE_ENDPOINT}?q=memberIdentity&memberIdentity={slug}&decorationId={DEFAULT_DECORATION_ID}"
 
     @staticmethod
     def build_legacy_profile_url(slug: str) -> str:
-        """Construct the fallback / legacy Voyager profileView URL."""
+        """Construct the legacy Voyager profileView endpoint URL."""
         return f"{VOYAGER_BASE_URL}/identity/profiles/{slug}/profileView"
 
     @staticmethod
-    def build_headers(jsessionid: str, user_agent: str) -> dict[str, str]:
-        """Construct required HTTP headers with derived CSRF token."""
-        csrf_token = jsessionid.strip('"')
+    def derive_csrf_token(jsessionid: str) -> str:
+        """Derive the required csrf-token header from JSESSIONID by stripping quotes."""
+        cleaned = jsessionid.strip().strip('"').strip("'")
+        return cleaned
+
+    @classmethod
+    def build_headers(
+        cls,
+        jsessionid: str,
+        user_agent: str,
+    ) -> dict[str, str]:
+        """Construct standard browser-like Rest.li request headers."""
+        csrf_token = cls.derive_csrf_token(jsessionid)
         return {
             "csrf-token": csrf_token,
             "x-restli-protocol-version": "2.0.0",
             "accept": "application/vnd.linkedin.normalized+json+2.1",
             "x-li-lang": "en_US",
+            "x-li-track": "{}",
+            "x-li-page-instance": "urn:li:page:d_flagship3_profile_view_base;null",
             "user-agent": user_agent,
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
         }
 
     @staticmethod
     def build_cookies(li_at: str, jsessionid: str) -> dict[str, str]:
-        """Construct cookie dictionary for session authentication."""
+        """Build session cookie mapping for authentication."""
         return {
-            "li_at": li_at,
-            "JSESSIONID": jsessionid,
+            "li_at": li_at.strip(),
+            "JSESSIONID": jsessionid.strip(),
         }
 
 
 class LinkedInClient:
-    """Direct HTTP client executing browserless requests against LinkedIn endpoints."""
+    """HTTP client executing direct reverse-engineered calls to LinkedIn Rest.li Voyager endpoints."""
 
     def __init__(
         self,
-        li_at: str = "",
-        jsessionid: str = "",
+        li_at: str,
+        jsessionid: str,
         user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
         proxy_url: str | None = None,
         timeout_seconds: float = 30.0,
         max_retries: int = 2,
         http_client: httpx.AsyncClient | None = None,
     ) -> None:
-        self.li_at = li_at
-        self.jsessionid = jsessionid
-        self.user_agent = user_agent
-        self.proxy_url = proxy_url
+        self.li_at = li_at.strip()
+        self.jsessionid = jsessionid.strip()
+        self.user_agent = user_agent.strip()
+        self.proxy_url = proxy_url.strip() if proxy_url else None
         self.timeout_seconds = timeout_seconds
         self.max_retries = max_retries
         self._external_client = http_client
@@ -88,15 +98,15 @@ class LinkedInClient:
             return self._external_client
         if self._internal_client is None or self._internal_client.is_closed:
             timeout_config = httpx.Timeout(
-                connect=5.0,
+                connect=10.0,
                 read=self.timeout_seconds,
-                write=5.0,
-                pool=5.0,
+                write=10.0,
+                pool=10.0,
             )
             self._internal_client = httpx.AsyncClient(
                 timeout=timeout_config,
                 proxy=self.proxy_url,
-                follow_redirects=False,
+                follow_redirects=True,
             )
         return self._internal_client
 
@@ -119,12 +129,9 @@ class LinkedInClient:
             ProfileForgeError: Standardized error code mapping on upstream failure.
         """
         if not self.li_at or not self.jsessionid:
-            logger.error("linkedin_credentials_missing", slug=slug)
             raise ProfileForgeError(
                 ErrorCode.AUTH_CONFIGURATION_ERROR,
-                "LinkedIn session credentials (LINKEDIN_LI_AT and "
-                "LINKEDIN_JSESSIONID) are not configured. "
-                "Please configure LINKEDIN_LI_AT and LINKEDIN_JSESSIONID in server environment variables.",
+                "LinkedIn session credentials (LINKEDIN_LI_AT and LINKEDIN_JSESSIONID) are missing.",
                 status_code=503,
             )
 
@@ -218,30 +225,43 @@ class LinkedInClient:
         """Classify HTTP response status code and body into domain errors or raw JSON data."""
         status_code = response.status_code
 
-        # 1. Challenge & Redirect Detection
-        if status_code in (301, 302, 303, 307, 308):
-            redirect_target = response.headers.get("Location", "")
+        # 1. Challenge & Redirect Detection (Checking final URL and history)
+        final_url = str(response.url).lower()
+        redirect_target = response.headers.get("Location", "")
+
+        is_authwall = any(
+            p in final_url or p in redirect_target.lower()
+            for p in ["authwall", "checkpoint", "login", "challenge", "uas/login"]
+        )
+
+        if is_authwall:
             logger.warning(
-                "upstream_challenge_redirect",
+                "upstream_challenge_detected",
+                slug=slug,
+                status=status_code,
+                final_url=final_url,
+                location=redirect_target,
+            )
+            raise ProfileForgeError(
+                ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
+                "LinkedIn presented an authentication challenge / authwall. "
+                "Session cookies (li_at, JSESSIONID) may be expired, flagged, or invalid.",
+                status_code=502,
+            )
+
+        if status_code in (301, 302, 303, 307, 308):
+            logger.warning(
+                "upstream_redirect",
                 slug=slug,
                 status=status_code,
                 location=redirect_target,
             )
-            if any(
-                p in redirect_target.lower()
-                for p in ["authwall", "checkpoint", "login", "challenge"]
-            ):
+            if not redirect_target:
                 raise ProfileForgeError(
-                    ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
-                    "LinkedIn presented an authentication challenge / authwall redirect. "
-                    "Session credentials may require manual renewal before retrying.",
+                    ErrorCode.UPSTREAM_SERVER_ERROR,
+                    f"Unexpected redirect from LinkedIn with status {status_code}.",
                     status_code=502,
                 )
-            raise ProfileForgeError(
-                ErrorCode.UPSTREAM_SERVER_ERROR,
-                f"Unexpected redirect from LinkedIn: {redirect_target}",
-                status_code=502,
-            )
 
         # 2. HTTP 999 (LinkedIn Bot Challenge) & HTTP 429 (Rate Limit)
         if status_code in (999, 429):
@@ -254,7 +274,7 @@ class LinkedInClient:
             )
             raise ProfileForgeError(
                 ErrorCode.UPSTREAM_RATE_LIMITED,
-                f"LinkedIn rate limited or challenged the session (HTTP {status_code}).",
+                f"LinkedIn rate limit reached (HTTP {status_code}). Retry after {retry_after}s.",
                 status_code=502,
                 headers={"Retry-After": retry_after},
             )
@@ -294,8 +314,19 @@ class LinkedInClient:
                 status_code=502,
             )
 
-        # 6. Parse 200 OK JSON Body
+        # 6. Parse 200 OK Body
         if status_code == 200:
+            # Check if LinkedIn returned HTML login/challenge page instead of JSON
+            content_type = response.headers.get("content-type", "").lower()
+            if "text/html" in content_type:
+                logger.warning("upstream_html_response_detected", slug=slug)
+                raise ProfileForgeError(
+                    ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
+                    "LinkedIn returned an HTML challenge/login page instead of JSON data. "
+                    "Session credentials (li_at) may be expired or require fresh login.",
+                    status_code=502,
+                )
+
             try:
                 data = response.json()
                 if not isinstance(data, dict):
@@ -318,6 +349,6 @@ class LinkedInClient:
         logger.error("upstream_unhandled_status", slug=slug, status=status_code)
         raise ProfileForgeError(
             ErrorCode.UPSTREAM_SERVER_ERROR,
-            f"Unexpected response status from LinkedIn: {status_code}",
+            f"LinkedIn returned unexpected HTTP status code {status_code}.",
             status_code=502,
         )
