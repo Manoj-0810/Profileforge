@@ -3,7 +3,7 @@
 ## Current State
 - **Phase**: COMPLETE — API AUTH + SWAGGER + FRONTEND VERIFICATION FINALIZED
 - **Active Local Extractor Mode**: **`MockExtractor`** (deterministic multi-scenario test mode). `DirectLinkedInExtractor` is fully implemented in `app/providers/linkedin/` and `app/extractor/linkedin_direct.py`; live mode requires `EXTRACTOR_TYPE=linkedin` plus both `LINKEDIN_LI_AT` and `LINKEDIN_JSESSIONID`.
-- **Milestone**: Full browserless direct LinkedIn HTTP migration completed, security vulnerabilities remediated, OpenAPI/Swagger security scheme (`ProfileForgeApiKey`) and request examples verified, 86 offline tests passing with 1 conditional live-smoke skip (89% statement coverage), strict Mypy and Ruff verification clean, zero secrets in repository.
+- **Milestone**: Full browserless direct LinkedIn HTTP migration completed, security vulnerabilities remediated, OpenAPI/Swagger security scheme (`ProfileForgeApiKey`) and request examples verified, 88 offline tests passing with 1 conditional live-smoke skip (88% statement coverage), strict Mypy and Ruff verification clean, zero secrets in repository.
 
 ---
 
@@ -16,7 +16,7 @@
 | **Phase 2** | Reverse-Engineering Documentation | `docs/reverse-engineering-notes.md`, `docs/extraction-field-map.md`, `docs/provider-sequence.md` | ✅ **DONE** |
 | **Phase 3** | Direct LinkedIn Provider | `app/providers/linkedin/` (`client.py`, `parser.py`, `resolver.py`, `normalizer.py`), `app/extractor/linkedin_direct.py` | ✅ **DONE** |
 | **Phase 4** | Core Service Decoupling | Decoupled `ProfileService` & `MockExtractor` from legacy LinkedAPI code | ✅ **DONE** |
-| **Phase 5** | Test Suite Migration | 86 offline tests across `tests/unit/`, `tests/contract/`, `tests/security/test_endpoint_auth.py`, offline fixtures (89% cov) | ✅ **DONE** |
+| **Phase 5** | Test Suite Migration | 88 offline tests across `tests/unit/`, `tests/contract/`, `tests/security/test_endpoint_auth.py`, offline fixtures (88% cov) | ✅ **DONE** |
 | **Phase 6** | Documentation & Quality Gates | `README.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `REQUIREMENTS.md`, `DEPLOYMENT.md`, `TEST_REPORT.md` | ✅ **DONE** |
 | **Phase 7** | OpenAPI & Auth DX Verification | Configured `ProfileForgeApiKey` scheme, explicit 401 error docs, empty frontend key field, strict client validation | ✅ **DONE** |
 
@@ -53,7 +53,7 @@
 ---
 
 ## 4. Quality Gates Status
-- **Automated Tests**: 86 passed, 1 skipped (offline live smoke), 0 failed
+- **Automated Tests**: 88 passed, 1 skipped (offline live smoke), 0 failed
 - **Statement Coverage**: 89% overall coverage
 - **Static Type Analysis**: 0 Mypy errors across 22 source files
 - **Linting & Formatting**: 0 Ruff errors, 100% compliant

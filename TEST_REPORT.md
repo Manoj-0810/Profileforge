@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Security Route Coverage** | `tests/security/test_endpoint_auth.py` | 3 | 3 | 0 | ✅ **PASSED** |
 | **Secret Leakage Audit** | `tests/unit/test_secret_leakage.py` | 1 | 1 | 0 | ✅ **PASSED** |
-| **Direct LinkedIn Client** | `tests/unit/test_linkedin_client.py` | 9 | 9 | 0 | ✅ **PASSED** |
+| **Direct LinkedIn Client** | `tests/unit/test_linkedin_client.py` | 11 | 11 | 0 | ✅ **PASSED** |
 | **Voyager Parser** | `tests/unit/test_linkedin_parser.py` | 4 | 4 | 0 | ✅ **PASSED** |
 | **Entity Resolver & Regex** | `tests/unit/test_linkedin_resolver.py` | 2 | 2 | 0 | ✅ **PASSED** |
 | **Domain Normalizer** | `tests/unit/test_linkedin_normalizer.py` | 2 | 2 | 0 | ✅ **PASSED** |
@@ -31,7 +31,7 @@
 | **Error Envelopes** | `tests/integration/test_error_responses.py` | 4 | 4 | 0 | ✅ **PASSED** |
 | **Voyager Fixture Contracts**| `tests/contract/test_voyager_contract.py` | 4 | 4 | 0 | ✅ **PASSED** |
 | **Live Smoke Test** | `tests/e2e/test_live_smoke.py` | 1 | 0 | 1 | ⏭️ **SKIPPED (Offline CI)** |
-| **TOTAL** | — | **88** | **87** | **1** | ✅ **100% PASSED** |
+| **TOTAL** | — | **89** | **88** | **1** | ✅ **100% PASSED** |
 
 ---
 

@@ -9,7 +9,7 @@ Use this checklist immediately before sending the repository and hosted URL to T
 - [x] `GET /healthz` returns `200` over HTTPS — `https://profileforge-ysbd.onrender.com/healthz`
 - [x] `GET /readyz` returns `200` with `"extractor": "linkedin"` when live mode is configured
 - [x] `GET /docs` loads the interactive OpenAPI UI with `ProfileForgeApiKey` security scheme
-- [x] `POST /v1/profile` returns `200` with valid `X-API-Key` and a public LinkedIn URL
+- [x] A successful live `POST /v1/profile` response was captured with a valid `X-API-Key` and public LinkedIn URL; re-verify immediately before submission
 - [x] A repeated lookup shows `"cache_hit": true` in the response body
 - [x] An invalid LinkedIn URL returns `400 INVALID_PROFILE_URL`
 - [x] An invalid API key returns `401 UNAUTHORIZED`
@@ -27,7 +27,7 @@ Use this checklist immediately before sending the repository and hosted URL to T
 ### Step-by-step: Get a stable session for Render
 
 1. **Create a brand-new LinkedIn account** (use a Gmail alias like `yourname+pftest@gmail.com`).
-2. Open that account in a browser **on the same network/IP as... nowhere** — just log in once and leave it idle.
+2. Open that account in a browser, log in once, and leave it idle after copying the cookies. A matching network/IP cannot be guaranteed from Render, so treat this as a challenge-only test session rather than a production reliability strategy.
 3. Immediately **copy the cookies** via F12 → Application → Cookies → `https://www.linkedin.com`:
    - `li_at`: full value starting with `AQED...`
    - `JSESSIONID`: value like `"ajax:1234567890..."`
@@ -48,8 +48,8 @@ Use this checklist immediately before sending the repository and hosted URL to T
 - [x] No `.env` is tracked — verified with `git ls-files .env` (empty)
 - [x] No secrets or credentials appear in any tracked file — confirmed by `test_secret_leakage.py`
 - [x] `README.md` contains the live Render URL and GitHub URL
-- [x] `TEST_REPORT.md` shows current test count (87 passed, 1 skipped, 88% coverage)
-- [x] CI (GitHub Actions) is green — all 87 tests passing
+- [x] `TEST_REPORT.md` shows current test count (88 passed, 1 skipped, 88% coverage)
+- [ ] Confirm the latest GitHub Actions run is green before submission (local quality gates pass)
 
 ---
 

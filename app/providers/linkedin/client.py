@@ -88,6 +88,17 @@ class LinkedInClient:
         self.max_retries = max_retries
         self._external_client = http_client
         self._internal_client: httpx.AsyncClient | None = None
+        self._session_cookies = LinkedInRequestBuilder.build_cookies(
+            self.li_at, self.jsessionid
+        )
+
+        if self._external_client is not None:
+            self._seed_client_cookies(self._external_client)
+
+    def _seed_client_cookies(self, client: httpx.AsyncClient) -> None:
+        """Seed a client with domain-scoped session cookies exactly once."""
+        for name, value in self._session_cookies.items():
+            client.cookies.set(name, value, domain="www.linkedin.com", path="/")
 
     def _get_client(self) -> httpx.AsyncClient:
         """Get or initialize the persistent AsyncClient."""
@@ -103,8 +114,11 @@ class LinkedInClient:
             self._internal_client = httpx.AsyncClient(
                 timeout=timeout_config,
                 proxy=self.proxy_url,
-                follow_redirects=True,
+                # Do not follow authwall/login redirects. They are upstream
+                # challenge signals and must be classified by the adapter.
+                follow_redirects=False,
             )
+            self._seed_client_cookies(self._internal_client)
         return self._internal_client
 
     async def close(self) -> None:
@@ -132,8 +146,6 @@ class LinkedInClient:
                 status_code=503,
             )
 
-        headers = LinkedInRequestBuilder.build_headers(self.jsessionid, self.user_agent)
-        cookies = LinkedInRequestBuilder.build_cookies(self.li_at, self.jsessionid)
         client = self._get_client()
         target_url = LinkedInRequestBuilder.build_profile_url(slug)
         attempt = 0
@@ -141,6 +153,12 @@ class LinkedInClient:
         while True:
             attempt += 1
             try:
+                # LinkedIn can rotate JSESSIONID. Derive CSRF from the current
+                # session value for every outbound request.
+                current_jsessionid = self._session_cookies["JSESSIONID"]
+                headers = LinkedInRequestBuilder.build_headers(
+                    current_jsessionid, self.user_agent
+                )
                 logger.info(
                     "upstream_linkedin_fetch_start",
                     slug=slug,
@@ -150,31 +168,8 @@ class LinkedInClient:
                 response = await client.get(
                     target_url,
                     headers=headers,
-                    cookies=cookies,
                 )
-
-                # If response was a redirect that wasn't followed (e.g. mock transport)
-                if response.status_code in (301, 302, 303, 307, 308):
-                    loc = response.headers.get("Location", "")
-                    if any(
-                        p in loc.lower()
-                        for p in [
-                            "authwall",
-                            "checkpoint",
-                            "login",
-                            "challenge",
-                            "uas/login",
-                        ]
-                    ):
-                        raise ProfileForgeError(
-                            ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
-                            "LinkedIn presented an authentication challenge / authwall. "
-                            "Session cookies (li_at, JSESSIONID) may be expired, flagged, or invalid.",
-                            status_code=502,
-                        )
-                    if loc and attempt <= self.max_retries:
-                        target_url = loc
-                        continue
+                self._sync_rotated_cookies(response)
 
                 # Only transient upstream server errors are retried. Auth,
                 # challenge, not-found, and rate-limit responses are final.
@@ -241,6 +236,21 @@ class LinkedInClient:
                     f"Unexpected error communicating with LinkedIn: {exc}",
                     status_code=502,
                 ) from exc
+
+    def _sync_rotated_cookies(self, response: httpx.Response) -> None:
+        """Persist upstream Set-Cookie rotations for subsequent lookups."""
+        for cookie_name in ("li_at", "JSESSIONID"):
+            try:
+                value = response.cookies.get(cookie_name)
+            except httpx.CookieConflict:
+                value = None
+            if value:
+                value = str(value)
+                self._session_cookies[cookie_name] = value
+                if cookie_name == "li_at":
+                    self.li_at = value
+                else:
+                    self.jsessionid = value
 
     def _classify_and_handle_response(
         self, response: httpx.Response, slug: str

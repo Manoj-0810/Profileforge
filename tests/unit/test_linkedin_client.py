@@ -73,6 +73,44 @@ async def test_client_successful_200_response():
 
 
 @pytest.mark.asyncio
+async def test_client_uses_rotated_session_cookie_and_csrf_on_next_lookup():
+    """Verify upstream JSESSIONID rotation is reused without duplicate cookies."""
+    requests: list[tuple[str, str]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(
+            (
+                request.headers.get("cookie", ""),
+                request.headers.get("csrf-token", ""),
+            )
+        )
+        if len(requests) == 1:
+            return httpx.Response(
+                200,
+                headers={"set-cookie": "JSESSIONID=ajax:rotated; Path=/"},
+                json={"included": [{"$type": "Profile", "firstName": "Sarah"}]},
+            )
+        return httpx.Response(
+            200, json={"included": [{"$type": "Profile", "firstName": "Sarah"}]}
+        )
+
+    mock_http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client = LinkedInClient(
+        li_at="valid-li-at", jsessionid="ajax:original", http_client=mock_http
+    )
+
+    await client.fetch_profile_raw("sarah-jenkins")
+    await client.fetch_profile_raw("sarah-jenkins")
+
+    assert "JSESSIONID=ajax:original" in requests[0][0]
+    assert "li_at=valid-li-at" in requests[0][0]
+    assert requests[0][1] == "ajax:original"
+    assert "JSESSIONID=ajax:rotated" in requests[1][0]
+    assert "JSESSIONID=ajax:original" not in requests[1][0]
+    assert requests[1][1] == "ajax:rotated"
+
+
+@pytest.mark.asyncio
 async def test_client_handles_401_and_403_auth_failures():
     """Verify client classifies 401 and 403 as UPSTREAM_AUTH_FAILED."""
     for status_code in [401, 403]:

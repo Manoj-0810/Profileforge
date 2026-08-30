@@ -17,7 +17,7 @@ It features:
 - **Strict Separation of Concerns**: Multi-layered pipeline (`Client` $\rightarrow$ `Parser` $\rightarrow$ `Resolver` $\rightarrow$ `Normalizer`) isolating upstream protocol nuances from public domain schemas.
 - **High Concurrency & Resilience**: Single-flight request coalescing (`asyncio.Future`), semaphore-bounded concurrency, persistent HTTP connection pooling, and in-memory TTL caching.
 - **Enterprise-Grade Security**: Constant-time `X-API-Key` verification, strict SSRF guards blocking private/loopback IPs, automatic sensitive header log redaction, and total decoupling of public API auth from upstream session secrets.
-- **Deterministic Multi-Layered Testing**: 87 automated unit, integration, security, and contract tests pass offline, with one conditional live smoke test and zero external network dependencies in CI.
+- **Deterministic Multi-Layered Testing**: 88 automated unit, integration, security, and contract tests pass offline, with one conditional live smoke test and zero external network dependencies in CI.
 
 ---
 
@@ -298,7 +298,7 @@ python -m pytest tests/ -v --cov=app --cov-report=term-missing --cov-fail-under=
 ## 11. Known Limitations
 
 1. **Session Longevity**: Direct HTTP integration requires active `li_at` and `JSESSIONID` cookies. Cookies expire periodically (typically 30–90 days) and must be updated in server environment variables.
-2. **IP-Based Session Pinning (LinkedIn WAF)**: LinkedIn binds sessions to originating IP/device context. When the same `li_at` cookie is replayed from a cloud server (e.g., Render's AWS Oregon datacenter) after being issued to a browser in a different region, LinkedIn's security system treats this as a potential session hijack and immediately invalidates the session, forcing a browser logout. **This is a fundamental constraint of reverse-engineering private Voyager endpoints, not a code defect.** The code correctly classifies the resulting 403 as `UPSTREAM_AUTH_FAILED`. True production-grade access requires LinkedIn's official OAuth API, a residential proxy service, or a dedicated test account that never logs in from a personal browser.
+2. **Cloud Session Rejection**: LinkedIn may bind sessions to IP/device context or invalidate them when a session is replayed from a cloud environment. The observed 403 is consistent with session expiry, cookie mismatch, CSRF mismatch, or an upstream security challenge; LinkedIn does not expose the exact rejection reason. The code classifies the resulting response as `UPSTREAM_AUTH_FAILED`. Production-grade access requires LinkedIn's official OAuth API or another permitted integration; a dedicated test account may reduce risk for challenge demonstration but is not a guarantee.
 3. **Anti-Bot Challenges**: If LinkedIn flags an IP or session with a CAPTCHA or checkpoint challenge, ProfileForge detects and classifies it as `UPSTREAM_CHALLENGE_DETECTED` (HTTP 502) without attempting illegal bypasses.
 4. **In-Memory Cache**: The default cache implementation is in-memory; entries clear on server restart.
 
@@ -359,9 +359,9 @@ curl -X POST "https://profileforge-ysbd.onrender.com/v1/profile" \
   "source": "linkedin_direct",
   "request_id": "req-[REDACTED]",
   "data_quality": {
-    "completeness_score": 0.66,
-    "available_sections": ["full_name", "headline", "location", "experience", "current_position", "current_company"],
-    "missing_sections": ["about", "skills", "education"],
+    "completeness_score": 0.5,
+    "available_sections": ["full_name", "headline", "location", "experience", "profile_image_url"],
+    "missing_sections": ["about", "education", "skills", "certifications", "languages"],
     "unavailable_sections": [],
     "parser_failed_sections": []
   }
@@ -369,4 +369,3 @@ curl -X POST "https://profileforge-ysbd.onrender.com/v1/profile" \
 ```
 
 > **Note**: Fields containing `[REDACTED]` are replaced for security. The data returned is sourced live from LinkedIn's Rest.li Voyager API at the time of capture. Completeness score reflects the public information visible on Satya Nadella's profile to an authenticated viewer.
-
