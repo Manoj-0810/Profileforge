@@ -100,16 +100,18 @@ class LinkedInResolver:
         if headline:
             headline = str(headline).strip() or None
 
-        location = (
+        raw_location = (
             prof.get("locationName")
-            or prof.get("location")
             or prof.get("geoCountryName")
+            or prof.get("location")
+            or prof.get("geoLocation")
             or None
         )
-        if location:
-            location = str(location).strip() or None
+        location = cls._extract_location_string(raw_location)
 
         country_code = prof.get("countryCode") or prof.get("geoCountryUrn") or None
+        if not country_code and isinstance(raw_location, dict):
+            country_code = raw_location.get("countryCode")
         if country_code and isinstance(country_code, str) and len(country_code) == 2:
             country_code = country_code.upper()
         else:
@@ -195,6 +197,32 @@ class LinkedInResolver:
             certifications=certifications,
             languages=languages,
         )
+
+    @classmethod
+    def _extract_location_string(cls, raw_loc: Any) -> str | None:
+        """Extract a clean location string from a raw string or complex ProfileLocation dict."""
+        if not raw_loc:
+            return None
+        if isinstance(raw_loc, str):
+            return raw_loc.strip() or None
+        if isinstance(raw_loc, dict):
+            for key in [
+                "preferredGeoPlaceName",
+                "geoCountryName",
+                "locationName",
+                "name",
+                "city",
+                "countryCode",
+            ]:
+                val = raw_loc.get(key)
+                if isinstance(val, str) and val.strip():
+                    return val.strip()
+            basic = raw_loc.get("basicLocation")
+            if isinstance(basic, dict):
+                country = basic.get("countryCode")
+                if isinstance(country, str) and country.strip():
+                    return country.strip().upper()
+        return None
 
     @classmethod
     def _resolve_picture_url(cls, prof: dict[str, Any]) -> str | None:
