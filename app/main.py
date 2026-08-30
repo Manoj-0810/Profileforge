@@ -27,7 +27,7 @@ from app.models import (
 from app.providers.linkedin.client import LinkedInClient
 from app.rate_limit import rate_limit_dependency
 from app.services.profile_service import ProfileService
-from app.ui import HTML_PLAYGROUND, get_playground_html
+from app.ui import get_playground_html
 
 logger = structlog.get_logger(__name__)
 
