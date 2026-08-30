@@ -27,7 +27,7 @@ from app.models import (
 from app.providers.linkedin.client import LinkedInClient
 from app.rate_limit import rate_limit_dependency
 from app.services.profile_service import ProfileService
-from app.ui import HTML_PLAYGROUND
+from app.ui import HTML_PLAYGROUND, get_playground_html
 
 logger = structlog.get_logger(__name__)
 
@@ -171,7 +171,7 @@ async def handle_unhandled_exception(request: Request, exc: Exception) -> JSONRe
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root() -> HTMLResponse:
     """Interactive visual playground and developer console."""
-    return HTMLResponse(content=HTML_PLAYGROUND)
+    return HTMLResponse(content=get_playground_html(settings.EXTRACTOR_TYPE))
 
 
 # Diagnostics Endpoints

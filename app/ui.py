@@ -1,6 +1,6 @@
 """Web UI playground for interactive LinkedIn profile lookup and developer testing."""
 
-HTML_PLAYGROUND = """<!DOCTYPE html>
+HTML_PLAYGROUND_TEMPLATE = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1017,7 +1017,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
             <circle cx="11" cy="11" r="8"></circle>
             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
           </svg>
-          <input type="text" id="targetUrl" class="input-control" placeholder="https://www.linkedin.com/in/username" value="https://www.linkedin.com/in/sarah-jenkins-dev" required spellcheck="false">
+          <input type="text" id="targetUrl" class="input-control" placeholder="https://www.linkedin.com/in/username" value="__DEFAULT_URL__" required spellcheck="false">
         </div>
 
         <div class="input-group-key">
@@ -1034,10 +1034,7 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
       <!-- Subcontrols & Sample Chips -->
       <div class="subcontrols-row">
         <div class="samples-bar">
-          <span class="samples-label">Sample Profiles:</span>
-          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/sarah-jenkins-dev')">Sarah Jenkins</button>
-          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/alex-mercer-tech')">Alex Mercer</button>
-          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/maya-lin-ai')">Maya Lin</button>
+          __SAMPLE_CHIPS__
         </div>
 
         <button type="button" class="options-toggle" onclick="toggleDevOptions()" id="devToggleText" aria-expanded="false" aria-controls="devDrawer">⚙️ Developer Options</button>
@@ -1466,3 +1463,26 @@ HTML_PLAYGROUND = """<!DOCTYPE html>
 </body>
 </html>
 """
+
+
+def get_playground_html(extractor_type: str = "linkedin") -> str:
+    """Render playground HTML dynamically based on the active extractor provider."""
+    if extractor_type == "linkedin":
+        default_url = ""
+        sample_chips = """<span class="samples-label">Popular Profiles:</span>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/satyanadella')">Satya Nadella</button>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/williamhgates')">Bill Gates</button>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/sundarpichai')">Sundar Pichai</button>"""
+    else:
+        default_url = "https://www.linkedin.com/in/sarah-jenkins-dev"
+        sample_chips = """<span class="samples-label">Sample Profiles:</span>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/sarah-jenkins-dev')">Sarah Jenkins</button>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/alex-mercer-tech')">Alex Mercer</button>
+          <button type="button" class="sample-pill" onclick="loadSample('https://www.linkedin.com/in/maya-lin-ai')">Maya Lin</button>"""
+
+    return HTML_PLAYGROUND_TEMPLATE.replace("__DEFAULT_URL__", default_url).replace(
+        "__SAMPLE_CHIPS__", sample_chips
+    )
+
+
+HTML_PLAYGROUND = get_playground_html("linkedin")

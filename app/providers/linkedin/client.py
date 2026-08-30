@@ -47,7 +47,7 @@ class LinkedInRequestBuilder:
         jsessionid: str,
         user_agent: str,
     ) -> dict[str, str]:
-        """Construct the minimal direct Rest.li request header set."""
+        """Construct the direct Rest.li request header set."""
         csrf_token = cls.derive_csrf_token(jsessionid)
         return {
             "csrf-token": csrf_token,
@@ -103,9 +103,7 @@ class LinkedInClient:
             self._internal_client = httpx.AsyncClient(
                 timeout=timeout_config,
                 proxy=self.proxy_url,
-                # Do not follow authwall/login redirects. They are upstream
-                # challenge signals and must be classified by the adapter.
-                follow_redirects=False,
+                follow_redirects=True,
             )
         return self._internal_client
 
@@ -154,6 +152,29 @@ class LinkedInClient:
                     headers=headers,
                     cookies=cookies,
                 )
+
+                # If response was a redirect that wasn't followed (e.g. mock transport)
+                if response.status_code in (301, 302, 303, 307, 308):
+                    loc = response.headers.get("Location", "")
+                    if any(
+                        p in loc.lower()
+                        for p in [
+                            "authwall",
+                            "checkpoint",
+                            "login",
+                            "challenge",
+                            "uas/login",
+                        ]
+                    ):
+                        raise ProfileForgeError(
+                            ErrorCode.UPSTREAM_CHALLENGE_DETECTED,
+                            "LinkedIn presented an authentication challenge / authwall. "
+                            "Session cookies (li_at, JSESSIONID) may be expired, flagged, or invalid.",
+                            status_code=502,
+                        )
+                    if loc and attempt <= self.max_retries:
+                        target_url = loc
+                        continue
 
                 # Only transient upstream server errors are retried. Auth,
                 # challenge, not-found, and rate-limit responses are final.
@@ -227,7 +248,7 @@ class LinkedInClient:
         """Classify HTTP response status code and body into domain errors or raw JSON data."""
         status_code = response.status_code
 
-        # 1. Challenge & Redirect Detection (Checking final URL and history)
+        # 1. Challenge & Authwall Detection
         final_url = str(response.url).lower()
         redirect_target = response.headers.get("Location", "")
 
@@ -258,12 +279,11 @@ class LinkedInClient:
                 status=status_code,
                 location=redirect_target,
             )
-            if not redirect_target:
-                raise ProfileForgeError(
-                    ErrorCode.UPSTREAM_SERVER_ERROR,
-                    f"Unexpected redirect from LinkedIn with status {status_code}.",
-                    status_code=502,
-                )
+            raise ProfileForgeError(
+                ErrorCode.UPSTREAM_SERVER_ERROR,
+                f"LinkedIn returned unexpected HTTP status code {status_code}.",
+                status_code=502,
+            )
 
         # 2. HTTP 999 (LinkedIn Bot Challenge) & HTTP 429 (Rate Limit)
         if status_code in (999, 429):
@@ -294,7 +314,7 @@ class LinkedInClient:
             logger.warning("upstream_auth_forbidden", slug=slug)
             raise ProfileForgeError(
                 ErrorCode.UPSTREAM_AUTH_FAILED,
-                "LinkedIn access forbidden (403). Verify that the matching li_at and JSESSIONID server-side session cookies are valid and that the CSRF token can be derived from JSESSIONID.",
+                "LinkedIn access forbidden (403). Session cookies may have expired or been revoked.",
                 status_code=502,
             )
 
@@ -318,7 +338,6 @@ class LinkedInClient:
 
         # 6. Parse 200 OK Body
         if status_code == 200:
-            # Check if LinkedIn returned HTML login/challenge page instead of JSON
             content_type = response.headers.get("content-type", "").lower()
             if "text/html" in content_type:
                 logger.warning("upstream_html_response_detected", slug=slug)
