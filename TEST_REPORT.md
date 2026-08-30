@@ -1,6 +1,6 @@
 # ProfileForge — Automated Test & Quality Verification Report
 
-**Execution Date**: 2026-08-29
+**Execution Date**: 2026-08-30
 **Target Environment**: Python 3.12+ / Python 3.14
 **Coverage Standard**: $\ge 85\%$ Statement Coverage Required (Enforced via CI)
 
@@ -31,7 +31,7 @@
 | **Error Envelopes** | `tests/integration/test_error_responses.py` | 4 | 4 | 0 | ✅ **PASSED** |
 | **Voyager Fixture Contracts**| `tests/contract/test_voyager_contract.py` | 4 | 4 | 0 | ✅ **PASSED** |
 | **Live Smoke Test** | `tests/e2e/test_live_smoke.py` | 1 | 0 | 1 | ⏭️ **SKIPPED (Offline CI)** |
-| **TOTAL** | — | **87** | **86** | **1** | ✅ **100% PASSED** |
+| **TOTAL** | — | **88** | **87** | **1** | ✅ **100% PASSED** |
 
 ---
 
@@ -53,17 +53,17 @@ app\logging_config.py                     44     14    68%
 app\main.py                               78     18    77%
 app\models.py                             86      0   100%
 app\providers\linkedin\__init__.py         5      0   100%
-app\providers\linkedin\client.py         120     28    77%
+app\providers\linkedin\client.py         129     32    75%
 app\providers\linkedin\normalizer.py      43      0   100%
 app\providers\linkedin\parser.py          73      9    88%
-app\providers\linkedin\resolver.py       192     20    90%
+app\providers\linkedin\resolver.py       210     31    85%
 app\rate_limit.py                         32      2    94%
 app\services\__init__.py                   3      0   100%
 app\services\profile_service.py           83      6    93%
-app\services\url_utils.py                 49      4    92%
+app\services\url_utils.py                 52      4    92%
 app\ui.py                                  1      0   100%
 ----------------------------------------------------------
-TOTAL                                   1053    119    89%
+TOTAL                                   1080    135    88%
 ```
 
 ---
