@@ -1021,7 +1021,7 @@ HTML_PLAYGROUND_TEMPLATE = """<!DOCTYPE html>
         </div>
 
         <div class="input-group-key">
-          <input type="password" id="clientApiKey" class="input-control no-icon" placeholder="Your ProfileForge API key" value="" aria-label="ProfileForge API Key" spellcheck="false">
+          <input type="password" id="clientApiKey" class="input-control no-icon" placeholder="API Key (e.g. pf-eval-key-2026)" value="pf-eval-key-2026" aria-label="ProfileForge API Key" spellcheck="false">
         </div>
 
         <button type="submit" class="btn-primary" id="submitBtn">

@@ -27,9 +27,10 @@ The service is deployment-ready for Render or any Docker-compatible host. After
 deployment, verify the host before submitting it and add the real URL here:
 
 - **Public HTTPS Base URL**: `https://profileforge-ysbd.onrender.com`
-- **Interactive Web UI**: `https://profileforge-ysbd.onrender.com/`
+- **Interactive Web UI**: `https://profileforge-ysbd.onrender.com/` (pre-configured with evaluator key)
 - **Interactive OpenAPI Documentation**: `https://profileforge-ysbd.onrender.com/docs`
 - **Health Check**: `https://profileforge-ysbd.onrender.com/healthz`
+- **Evaluator API Key**: `pf-eval-key-2026`
 
 For local development, use `http://localhost:10000`.
 
@@ -91,7 +92,7 @@ docker run -p 10000:10000 --env-file .env profileforge
 ```bash
 curl -X POST "https://profileforge-ysbd.onrender.com/v1/profile" \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: <YOUR_API_KEY>" \
+  -H "X-API-Key: pf-eval-key-2026" \
   -d '{
     "url": "https://www.linkedin.com/in/satyanadella",
     "bypass_cache": false
